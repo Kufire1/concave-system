@@ -20,7 +20,7 @@ function App() {
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regRole, setRegRole] = useState('creator'); // Default to creator
+  const [regRole, setRegRole] = useState('staff'); // Default to staff
 
   // Task Inputs
   const [newTask, setNewTask] = useState({ title: '', department: 'Management', description: '' });
@@ -52,7 +52,7 @@ function App() {
     } catch (err) { alert('Login Failed'); }
   };
 
-  // --- NEW REGISTER FUNCTION ---
+  // --- REGISTER FUNCTION ---
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
@@ -126,10 +126,9 @@ function App() {
             <button className="w-full bg-primary py-3 rounded font-bold hover:opacity-90">Login</button>
           </form>
           
-          {/* NEW: Switch to Register View */}
           <div className="mt-4 text-center">
              <button onClick={() => setView('register')} className="text-xs text-gray-500 hover:text-primary underline">
-               Create Admin Account
+               Create Account
              </button>
           </div>
         </div>
@@ -137,7 +136,7 @@ function App() {
     );
   }
 
-  // --- NEW: REGISTER PAGE ---
+  // --- REGISTER PAGE (Updated with Roles) ---
   if (view === 'register') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
@@ -150,7 +149,9 @@ function App() {
             
             <label className="block text-sm text-gray-400 pl-1">Role</label>
             <select className="w-full p-3 bg-dark border border-gray-700 rounded text-white" value={regRole} onChange={e => setRegRole(e.target.value)}>
-               <option value="creator">Creator (Admin)</option>
+               <option value="creator">Creator (Boss)</option>
+               <option value="admin">Admin</option>
+               <option value="hod">Head of Department (HOD)</option>
                <option value="staff">Staff</option>
             </select>
 
@@ -193,7 +194,6 @@ function App() {
 
             <h3 className="text-xl font-bold mb-4">Milestones & Checklist</h3>
             
-            {/* List Milestones */}
             <div className="space-y-3 mb-8">
                {selectedTask.milestones.map((ms, index) => (
                   <div key={index} 
@@ -210,7 +210,6 @@ function App() {
                {selectedTask.milestones.length === 0 && <p className="text-gray-500 italic">No milestones set yet.</p>}
             </div>
 
-            {/* Add Milestone Input */}
             <div className="flex gap-2">
                <input 
                   className="flex-1 p-3 bg-dark border border-gray-700 rounded text-white" 
@@ -245,7 +244,9 @@ function App() {
             <h2 className="text-3xl font-bold">Dashboard</h2>
             <p className="text-gray-400">Overview of departmental performance</p>
           </div>
-          {user.role === 'creator' && (
+          
+          {/* PERMISSIONS: Creator, Admin, and HOD can assign tasks */}
+          {['creator', 'admin', 'hod'].includes(user.role) && (
             <button onClick={() => setShowCreate(!showCreate)} className="bg-primary px-4 py-2 rounded flex items-center gap-2 font-bold hover:bg-purple-600 transition">
               <Plus size={18} /> Assign New Task
             </button>
@@ -277,7 +278,6 @@ function App() {
           </div>
         )}
 
-        {/* Task Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tasks.map(task => (
             <div key={task._id} onClick={() => openTask(task)} className="bg-card p-6 rounded-xl border border-gray-800 hover:border-primary transition-all shadow-lg hover:shadow-purple-900/10 cursor-pointer group">
