@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BarChart2, Plus, CheckCircle, User, ArrowLeft, CheckSquare, Square } from 'lucide-react';
 
-axios.defaults.baseURL = 'http://localhost:5000/api';
+axios.defaults.baseURL = 'https://concave-system.onrender.com/api';
 
 function App() {
   const [view, setView] = useState('login'); // login, dashboard, task-detail
