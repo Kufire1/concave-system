@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Plus, User, ArrowLeft, CheckSquare, Square, Loader2, 
-  Filter, Calendar, ChevronDown, Search 
+  Calendar, ChevronRight, Clock
 } from 'lucide-react';
 
 // Live Backend Link
@@ -34,7 +34,7 @@ function App() {
     title: '', 
     department: 'Management', 
     description: '', 
-    deadline: '' // <--- NEW FIELD
+    deadline: '' 
   });
   const [newMilestone, setNewMilestone] = useState('');
 
@@ -81,7 +81,7 @@ function App() {
       if (filterStatus === 'Started' && status !== 'In Progress') return false;
       if (filterStatus === 'Not Done' && status !== 'Not Done') return false;
 
-      // 3. Date Filter (Created At)
+      // 3. Date Filter
       if (dateRange.start) {
          const taskDate = new Date(task.createdAt);
          const startDate = new Date(dateRange.start);
@@ -90,16 +90,14 @@ function App() {
       if (dateRange.end) {
          const taskDate = new Date(task.createdAt);
          const endDate = new Date(dateRange.end);
-         // Set end date to end of day
          endDate.setHours(23, 59, 59); 
          if (taskDate > endDate) return false;
       }
-
       return true;
     });
   };
 
-  // --- HANDLERS (Login, Register, etc.) ---
+  // --- HANDLERS ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -141,18 +139,17 @@ function App() {
   };
 
   const openTask = (task) => {
-    setSelectedTask({ ...task, progress: getProgress(task) }); // Inject live progress
+    setSelectedTask({ ...task, progress: getProgress(task) });
     setView('task-detail');
   };
 
-  // --- MILESTONE HANDLERS ---
   const addMilestone = async () => {
     if (!newMilestone) return;
     const updatedMilestones = [...selectedTask.milestones, { title: newMilestone, status: 'Not Done' }];
     setSelectedTask({ ...selectedTask, milestones: updatedMilestones });
     setNewMilestone('');
     await axios.put(`/tasks/${selectedTask._id}`, { milestones: updatedMilestones });
-    fetchTasks(); // Refresh main list
+    fetchTasks();
   };
 
   const toggleMilestone = async (index) => {
@@ -160,7 +157,7 @@ function App() {
     updatedMilestones[index].status = updatedMilestones[index].status === 'Done' ? 'Not Done' : 'Done';
     setSelectedTask({ ...selectedTask, milestones: updatedMilestones });
     await axios.put(`/tasks/${selectedTask._id}`, { milestones: updatedMilestones });
-    fetchTasks(); // Refresh main list
+    fetchTasks();
   };
 
   // --- VIEWS ---
@@ -168,7 +165,7 @@ function App() {
   if (view === 'login') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
-        <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800">
+        <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800 m-4">
           <h1 className="text-2xl font-bold text-primary mb-6 text-center">THE CONCAVE</h1>
           <form onSubmit={handleLogin} className="space-y-4">
             <input className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
@@ -186,7 +183,7 @@ function App() {
   if (view === 'register') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
-        <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800">
+        <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800 m-4">
           <h1 className="text-2xl font-bold text-primary mb-6 text-center">CREATE ACCOUNT</h1>
           <form onSubmit={handleRegister} className="space-y-4">
             <input required className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
@@ -211,25 +208,27 @@ function App() {
   if (view === 'task-detail' && selectedTask) {
     const progress = getProgress(selectedTask);
     return (
-      <div className="min-h-screen bg-dark text-white p-8">
+      <div className="min-h-screen bg-dark text-white p-4 md:p-8">
          <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6">
            <ArrowLeft size={20} /> Back to Dashboard
          </button>
 
-         <div className="max-w-3xl mx-auto bg-card p-8 rounded-xl border border-gray-800">
-            <div className="flex justify-between items-start mb-6">
+         <div className="max-w-3xl mx-auto bg-card p-6 md:p-8 rounded-xl border border-gray-800">
+            <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
                <div>
                   <span className="text-primary font-bold uppercase tracking-wider text-sm">{selectedTask.department}</span>
-                  <h1 className="text-3xl font-bold mt-2">{selectedTask.title}</h1>
-                  <p className="text-sm text-gray-400 mt-1">Deadline: {selectedTask.deadline || 'No Deadline'}</p>
+                  <h1 className="text-2xl md:text-3xl font-bold mt-2">{selectedTask.title}</h1>
+                  <p className="text-sm text-gray-400 mt-1 flex items-center gap-2">
+                    <Clock size={14} /> Deadline: {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Deadline'}
+                  </p>
                </div>
-               <div className="text-right">
-                  <span className="block text-4xl font-bold text-primary">{progress}%</span>
+               <div className="text-left md:text-right w-full md:w-auto bg-gray-900 md:bg-transparent p-4 md:p-0 rounded-lg">
+                  <span className="block text-3xl md:text-4xl font-bold text-primary">{progress}%</span>
                   <span className="text-sm text-gray-500">Completed</span>
                </div>
             </div>
 
-            <p className="text-gray-300 mb-8 p-4 bg-dark rounded border border-gray-700">
+            <p className="text-gray-300 mb-8 p-4 bg-dark rounded border border-gray-700 whitespace-pre-wrap">
                {selectedTask.description}
             </p>
 
@@ -237,7 +236,7 @@ function App() {
             <div className="space-y-3 mb-8">
                {selectedTask.milestones?.map((ms, index) => (
                   <div key={index} onClick={() => toggleMilestone(index)} className="flex items-center gap-4 p-4 rounded bg-dark border border-gray-800 hover:border-primary cursor-pointer transition-all">
-                     {ms.status === 'Done' ? <CheckSquare className="text-green-500" /> : <Square className="text-gray-500" />}
+                     {ms.status === 'Done' ? <CheckSquare className="text-green-500 shrink-0" /> : <Square className="text-gray-500 shrink-0" />}
                      <span className={ms.status === 'Done' ? "text-gray-500 line-through" : "text-white"}>{ms.title}</span>
                   </div>
                ))}
@@ -253,13 +252,13 @@ function App() {
     );
   }
 
-  // --- NEW DASHBOARD (TABLE VIEW) ---
+  // --- DASHBOARD ---
   return (
-    <div className="min-h-screen bg-dark text-white font-sans">
+    <div className="min-h-screen bg-dark text-white font-sans pb-10">
       <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
-        <h1 className="text-xl font-bold text-primary tracking-wider">CONCAVE SYSTEM</h1>
+        <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">CONCAVE</h1>
         <div className="flex gap-4 items-center">
-          <div className="flex items-center gap-2 text-sm text-gray-300">
+          <div className="hidden md:flex items-center gap-2 text-sm text-gray-300">
             <User size={16} />
             <span>{user?.name} <span className="text-primary">({user?.role})</span></span>
           </div>
@@ -267,25 +266,24 @@ function App() {
         </div>
       </nav>
 
-      <div className="p-8 max-w-7xl mx-auto">
-        <div className="flex justify-between items-end mb-8">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between md:items-end mb-6 gap-4">
           <div>
-            <h2 className="text-3xl font-bold mb-1">Dashboard</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-1">Dashboard</h2>
             <p className="text-gray-400 text-sm">Task Overview & Management</p>
           </div>
           {['creator', 'admin', 'hod'].includes(user.role) && (
-            <button onClick={() => setShowCreate(!showCreate)} className="bg-primary px-4 py-2 rounded flex items-center gap-2 font-bold hover:bg-purple-600 transition">
+            <button onClick={() => setShowCreate(!showCreate)} className="bg-primary px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-purple-600 transition w-full md:w-auto shadow-lg shadow-purple-900/20">
               <Plus size={18} /> New Task
             </button>
           )}
         </div>
 
         {/* --- FILTERS TOOLBAR --- */}
-        <div className="flex flex-wrap gap-4 mb-6 bg-card p-4 rounded-lg border border-gray-800 items-end">
-           {/* Department Filter */}
-           <div className="flex flex-col gap-1">
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-4 mb-6 bg-card p-4 rounded-lg border border-gray-800 md:items-end">
+           <div className="flex flex-col gap-1 w-full md:w-auto">
               <label className="text-xs text-gray-500 uppercase font-bold">Department</label>
-              <select className="bg-dark border border-gray-700 text-white p-2 rounded text-sm w-40" 
+              <select className="bg-dark border border-gray-700 text-white p-2 rounded text-sm w-full md:w-40" 
                  value={filterDept} onChange={e => setFilterDept(e.target.value)}>
                  <option value="All">All Departments</option>
                  <option value="Management">Management</option>
@@ -297,10 +295,9 @@ function App() {
               </select>
            </div>
 
-           {/* Status Filter */}
-           <div className="flex flex-col gap-1">
+           <div className="flex flex-col gap-1 w-full md:w-auto">
               <label className="text-xs text-gray-500 uppercase font-bold">Completion</label>
-              <select className="bg-dark border border-gray-700 text-white p-2 rounded text-sm w-32" 
+              <select className="bg-dark border border-gray-700 text-white p-2 rounded text-sm w-full md:w-32" 
                  value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                  <option value="All">All Status</option>
                  <option value="Not Done">Not Done</option>
@@ -309,14 +306,13 @@ function App() {
               </select>
            </div>
 
-           {/* Date Range */}
-           <div className="flex flex-col gap-1">
+           <div className="flex flex-col gap-1 w-full md:w-auto">
               <label className="text-xs text-gray-500 uppercase font-bold">Date Created</label>
               <div className="flex gap-2 items-center">
-                 <input type="date" className="bg-dark border border-gray-700 text-gray-400 p-2 rounded text-sm" 
+                 <input type="date" className="bg-dark border border-gray-700 text-gray-400 p-2 rounded text-sm w-full" 
                    value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
                  <span className="text-gray-600">-</span>
-                 <input type="date" className="bg-dark border border-gray-700 text-gray-400 p-2 rounded text-sm" 
+                 <input type="date" className="bg-dark border border-gray-700 text-gray-400 p-2 rounded text-sm w-full" 
                    value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
               </div>
            </div>
@@ -346,18 +342,52 @@ function App() {
                    onChange={e => setNewTask({...newTask, deadline: e.target.value})} />
               </div>
 
-              <textarea placeholder="Description..." className="col-span-2 md:col-span-1 p-3 bg-dark border border-gray-700 rounded text-white h-full focus:border-primary outline-none"
+              <textarea placeholder="Description..." className="col-span-1 md:col-span-1 p-3 bg-dark border border-gray-700 rounded text-white h-24 md:h-full focus:border-primary outline-none"
                 onChange={e => setNewTask({...newTask, description: e.target.value})}></textarea>
               
-              <button disabled={loading} className="col-span-2 bg-primary py-3 rounded font-bold flex justify-center items-center gap-2 hover:opacity-90 disabled:opacity-50">
+              <button disabled={loading} className="col-span-1 md:col-span-2 bg-primary py-3 rounded font-bold flex justify-center items-center gap-2 hover:opacity-90 disabled:opacity-50">
                  {loading ? <Loader2 className="animate-spin" /> : "Assign Task"}
               </button>
             </form>
           </div>
         )}
 
-        {/* --- TASK TABLE --- */}
-        <div className="bg-card rounded-lg border border-gray-800 overflow-hidden shadow-xl">
+        {/* --- MOBILE VIEW (CARDS) - Visible only on small screens --- */}
+        <div className="md:hidden space-y-4">
+          {getFilteredTasks().map(task => {
+            const progress = getProgress(task);
+            return (
+              <div key={task._id} onClick={() => openTask(task)} className="bg-card p-5 rounded-xl border border-gray-800 active:scale-[0.98] transition-transform shadow-lg">
+                 <div className="flex justify-between items-start mb-3">
+                    <span className="text-xs font-bold text-primary uppercase bg-purple-900/20 px-2 py-1 rounded">{task.department}</span>
+                    <span className={`text-xs px-2 py-1 rounded font-bold ${progress === 100 ? 'bg-green-900/30 text-green-400' : 'bg-gray-800 text-gray-400'}`}>
+                      {progress === 100 ? 'Done' : `${progress}%`}
+                    </span>
+                 </div>
+                 <h3 className="text-lg font-bold text-white mb-1">{task.title}</h3>
+                 <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+                   <Calendar size={14}/> {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline'}
+                 </p>
+                 
+                 {/* Mini Progress Bar */}
+                 <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden mb-4">
+                     <div className={`h-full ${progress === 100 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${progress}%` }}></div>
+                 </div>
+
+                 <div className="flex justify-between items-center text-sm text-gray-400 border-t border-gray-800 pt-3">
+                    <span>View Details</span>
+                    <ChevronRight size={16} />
+                 </div>
+              </div>
+            )
+          })}
+           {getFilteredTasks().length === 0 && (
+             <div className="text-center text-gray-500 py-10">No tasks found.</div>
+           )}
+        </div>
+
+        {/* --- DESKTOP VIEW (TABLE) - Visible only on medium screens and up --- */}
+        <div className="hidden md:block bg-card rounded-lg border border-gray-800 overflow-hidden shadow-xl">
           <table className="w-full text-left text-sm text-gray-400">
             <thead className="bg-gray-900 text-gray-200 uppercase font-bold text-xs tracking-wider">
                <tr>
@@ -374,27 +404,12 @@ function App() {
                   const progress = getProgress(task);
                   return (
                     <tr key={task._id} onClick={() => openTask(task)} className="hover:bg-gray-800/50 cursor-pointer transition-colors group">
-                       {/* Task Name with Blur Effect */}
                        <td className="p-4 text-white font-medium relative max-w-[200px]">
-                          <div className="truncate" title={task.title}>
-                            {task.title}
-                          </div>
-                          {/* Visual cue for long text */}
+                          <div className="truncate" title={task.title}>{task.title}</div>
                           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent group-hover:from-gray-800 pointer-events-none"></div>
                        </td>
-                       
-                       <td className="p-4">
-                          <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">
-                             {task.department}
-                          </span>
-                       </td>
-
-                       <td className="p-4 text-gray-500 italic">
-                          {/* Placeholder for Staff Name until backend supports user assignment */}
-                          {task.department} Team
-                       </td>
-
-                       {/* Progress Percentage */}
+                       <td className="p-4"><span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{task.department}</span></td>
+                       <td className="p-4 text-gray-500 italic">{task.department} Team</td>
                        <td className="p-4">
                           <div className="flex items-center gap-2">
                              <span className={`font-bold ${progress === 100 ? 'text-green-500' : 'text-primary'}`}>{progress}%</span>
@@ -403,25 +418,13 @@ function App() {
                              </div>
                           </div>
                        </td>
-
-                       {/* Dates */}
-                       <td className="p-4">
-                          {new Date(task.createdAt || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                       </td>
-                       
-                       <td className="p-4 text-gray-300">
-                          {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-'}
-                       </td>
+                       <td className="p-4">{new Date(task.createdAt || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
+                       <td className="p-4 text-gray-300">{task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-'}</td>
                     </tr>
                   );
                })}
-
                {getFilteredTasks().length === 0 && (
-                  <tr>
-                     <td colSpan="6" className="p-8 text-center text-gray-500 italic">
-                        No tasks found matching your filters.
-                     </td>
-                  </tr>
+                  <tr><td colSpan="6" className="p-8 text-center text-gray-500 italic">No tasks found matching your filters.</td></tr>
                )}
             </tbody>
           </table>
