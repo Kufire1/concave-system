@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart2, Plus, CheckCircle, User, ArrowLeft, CheckSquare, Square } from 'lucide-react';
+import { BarChart2, Plus, CheckCircle, User, ArrowLeft, CheckSquare, Square, Loader2 } from 'lucide-react';
 
 // ensure this points to your live Render backend
 axios.defaults.baseURL = 'https://concave-system.onrender.com/api';
@@ -9,18 +9,19 @@ function App() {
   const [view, setView] = useState('login'); // login, register, dashboard, task-detail
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
-  const [selectedTask, setSelectedTask] = useState(null); // The task currently open
+  const [selectedTask, setSelectedTask] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(false); // <--- NEW: Controls loading state
   
   // Login Inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Register Inputs (NEW)
+  // Register Inputs
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regRole, setRegRole] = useState('staff'); // Default to staff
+  const [regRole, setRegRole] = useState('staff');
 
   // Task Inputs
   const [newTask, setNewTask] = useState({ title: '', department: 'Management', description: '' });
@@ -44,17 +45,22 @@ function App() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true); // Start Loading
     try {
       const res = await axios.post('/login', { email, password });
       localStorage.setItem('user', JSON.stringify(res.data));
       setUser(res.data);
       setView('dashboard');
-    } catch (err) { alert('Login Failed'); }
+    } catch (err) { 
+      alert('Login Failed. Check email/password.'); 
+    } finally {
+      setLoading(false); // Stop Loading (whether success or fail)
+    }
   };
 
-  // --- REGISTER FUNCTION ---
   const handleRegister = async (e) => {
     e.preventDefault();
+    setLoading(true); // Start Loading
     try {
       await axios.post('/register', { 
         name: regName, 
@@ -63,9 +69,11 @@ function App() {
         role: regRole 
       });
       alert('Account Created Successfully! Please Login.');
-      setView('login'); // Switch back to login screen
+      setView('login');
     } catch (err) { 
       alert('Registration Failed. Email might be taken.'); 
+    } finally {
+      setLoading(false); // Stop Loading
     }
   };
 
@@ -77,41 +85,44 @@ function App() {
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
+    setLoading(true); // Start Loading
     try {
       await axios.post('/tasks', newTask);
       setShowCreate(false);
       fetchTasks();
-      alert('Task Assigned!');
-    } catch (err) { alert('Error creating task'); }
+      // alert('Task Assigned!'); // Removed alert for smoother flow
+    } catch (err) { 
+      alert('Error creating task'); 
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // --- Open a Task ---
   const openTask = (task) => {
     setSelectedTask(task);
     setView('task-detail');
   };
 
-  // --- Add a Milestone ---
   const addMilestone = async () => {
     if (!newMilestone) return;
     const updatedMilestones = [...selectedTask.milestones, { title: newMilestone, status: 'Not Done' }];
     
-    // Save to Backend
-    const res = await axios.put(`/tasks/${selectedTask._id}`, { milestones: updatedMilestones });
-    
-    setSelectedTask(res.data); // Update UI
+    // Optimistic UI Update (Show it immediately before server responds)
+    setSelectedTask({ ...selectedTask, milestones: updatedMilestones });
     setNewMilestone('');
+
+    await axios.put(`/tasks/${selectedTask._id}`, { milestones: updatedMilestones });
   };
 
-  // --- Tick a Box ---
   const toggleMilestone = async (index) => {
     const updatedMilestones = [...selectedTask.milestones];
     const currentStatus = updatedMilestones[index].status;
     updatedMilestones[index].status = currentStatus === 'Done' ? 'Not Done' : 'Done';
 
-    // Save to Backend
-    const res = await axios.put(`/tasks/${selectedTask._id}`, { milestones: updatedMilestones });
-    setSelectedTask(res.data);
+    // Optimistic UI Update
+    setSelectedTask({ ...selectedTask, milestones: updatedMilestones });
+
+    await axios.put(`/tasks/${selectedTask._id}`, { milestones: updatedMilestones });
   };
 
   // --- LOGIN PAGE ---
@@ -121,13 +132,20 @@ function App() {
         <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800">
           <h1 className="text-2xl font-bold text-primary mb-6 text-center">THE CONCAVE</h1>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-            <input type="password" className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-            <button className="w-full bg-primary py-3 rounded font-bold hover:opacity-90">Login</button>
+            <input className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none transition-colors" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+            <input type="password" className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none transition-colors" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+            
+            <button disabled={loading} className="w-full bg-primary py-3 rounded font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" size={20} /> Authenticating...
+                </>
+              ) : "Login"}
+            </button>
           </form>
           
           <div className="mt-4 text-center">
-             <button onClick={() => setView('register')} className="text-xs text-gray-500 hover:text-primary underline">
+             <button disabled={loading} onClick={() => setView('register')} className="text-xs text-gray-500 hover:text-primary underline">
                Create Account
              </button>
           </div>
@@ -136,30 +154,36 @@ function App() {
     );
   }
 
-  // --- REGISTER PAGE (Updated with Roles) ---
+  // --- REGISTER PAGE ---
   if (view === 'register') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
         <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800">
           <h1 className="text-2xl font-bold text-primary mb-6 text-center">CREATE ACCOUNT</h1>
           <form onSubmit={handleRegister} className="space-y-4">
-            <input required className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
-            <input required className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
-            <input required type="password" className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Password" value={regPassword} onChange={e => setRegPassword(e.target.value)} />
+            <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
+            <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
+            <input required type="password" className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Password" value={regPassword} onChange={e => setRegPassword(e.target.value)} />
             
             <label className="block text-sm text-gray-400 pl-1">Role</label>
-            <select className="w-full p-3 bg-dark border border-gray-700 rounded text-white" value={regRole} onChange={e => setRegRole(e.target.value)}>
+            <select className="w-full p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none" value={regRole} onChange={e => setRegRole(e.target.value)}>
                <option value="creator">Creator (Boss)</option>
                <option value="admin">Admin</option>
                <option value="hod">Head of Department (HOD)</option>
                <option value="staff">Staff</option>
             </select>
 
-            <button className="w-full bg-primary py-3 rounded font-bold hover:opacity-90">Register</button>
+            <button disabled={loading} className="w-full bg-primary py-3 rounded font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
+               {loading ? (
+                <>
+                  <Loader2 className="animate-spin" size={20} /> Creating Account...
+                </>
+              ) : "Register"}
+            </button>
           </form>
           
           <div className="mt-4 text-center">
-             <button onClick={() => setView('login')} className="text-sm text-gray-400 hover:text-white">
+             <button disabled={loading} onClick={() => setView('login')} className="text-sm text-gray-400 hover:text-white">
                Back to Login
              </button>
           </div>
@@ -168,7 +192,7 @@ function App() {
     );
   }
 
-  // --- TASK DETAIL PAGE (The Workspace) ---
+  // --- TASK DETAIL PAGE ---
   if (view === 'task-detail' && selectedTask) {
     return (
       <div className="min-h-screen bg-dark text-white p-8">
@@ -212,7 +236,7 @@ function App() {
 
             <div className="flex gap-2">
                <input 
-                  className="flex-1 p-3 bg-dark border border-gray-700 rounded text-white" 
+                  className="flex-1 p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none" 
                   placeholder="Add a new milestone (e.g. 'Upload Receipt')"
                   value={newMilestone}
                   onChange={e => setNewMilestone(e.target.value)}
@@ -245,7 +269,6 @@ function App() {
             <p className="text-gray-400">Overview of departmental performance</p>
           </div>
           
-          {/* PERMISSIONS: Creator, Admin, and HOD can assign tasks */}
           {['creator', 'admin', 'hod'].includes(user.role) && (
             <button onClick={() => setShowCreate(!showCreate)} className="bg-primary px-4 py-2 rounded flex items-center gap-2 font-bold hover:bg-purple-600 transition">
               <Plus size={18} /> Assign New Task
@@ -257,10 +280,10 @@ function App() {
           <div className="bg-card p-6 rounded-xl border border-gray-700 mb-8 animate-fade-in">
             <h3 className="text-xl font-bold mb-4">Assign Task to Department</h3>
             <form onSubmit={handleCreateTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input required placeholder="Task Title" className="p-3 bg-dark border border-gray-700 rounded text-white" 
+              <input required placeholder="Task Title" className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none" 
                 onChange={e => setNewTask({...newTask, title: e.target.value})} />
               
-              <select className="p-3 bg-dark border border-gray-700 rounded text-white"
+              <select className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                 onChange={e => setNewTask({...newTask, department: e.target.value})}>
                 <option>Management</option>
                 <option>Operation</option>
@@ -270,10 +293,12 @@ function App() {
                 <option>Research and Development</option>
               </select>
 
-              <textarea placeholder="Description" className="col-span-2 p-3 bg-dark border border-gray-700 rounded text-white h-24"
+              <textarea placeholder="Description" className="col-span-2 p-3 bg-dark border border-gray-700 rounded text-white h-24 focus:border-primary outline-none"
                 onChange={e => setNewTask({...newTask, description: e.target.value})}></textarea>
               
-              <button className="col-span-2 bg-primary py-3 rounded font-bold">Assign Task</button>
+              <button disabled={loading} className="col-span-2 bg-primary py-3 rounded font-bold flex justify-center items-center gap-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+                 {loading ? <Loader2 className="animate-spin" size={20} /> : "Assign Task"}
+              </button>
             </form>
           </div>
         )}
