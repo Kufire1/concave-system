@@ -27,20 +27,30 @@ const TaskSchema = new mongoose.Schema({
   title: String,
   description: String,
   department: String,
-  assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  status: { type: String, default: 'Not Started' }, // Not Started, In Progress, Completed
+  // This links to the User model
+  assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
+  status: { type: String, default: 'Not Started' },
   progress: { type: Number, default: 0 },
   milestones: [{
     title: String,
-    status: { type: String, default: 'Not Done' } // Not Done, Done
+    status: { type: String, default: 'Not Done' }
   }],
-  // --- NEW FIELDS ADDED BELOW ---
-  createdAt: { type: Date, default: Date.now }, // Required for "Date Created" filter
-  deadline: Date // Required for your new Deadline column
+  createdAt: { type: Date, default: Date.now },
+  deadline: Date 
 });
 const Task = mongoose.model('Task', TaskSchema);
 
 // Routes
+
+// 1. GET ALL USERS (The "Phonebook" for the dropdown)
+app.get('/api/users', async (req, res) => {
+  try {
+    // Get all users, but hide their passwords
+    const users = await User.find().select('-password'); 
+    res.json(users);
+  } catch (err) { res.status(500).send('Server Error'); }
+});
+
 app.post('/api/register', async (req, res) => {
   try {
     const user = new User(req.body);
@@ -56,30 +66,31 @@ app.post('/api/login', async (req, res) => {
   res.json(user);
 });
 
+// 2. GET TASKS (Now with "Populate" to show real names)
 app.get('/api/tasks', async (req, res) => {
-  const tasks = await Task.find();
+  // .populate('assignedTo') swaps the ID number for the actual User object
+  const tasks = await Task.find().populate('assignedTo', 'name email'); 
   res.json(tasks);
 });
 
 app.post('/api/tasks', async (req, res) => {
   const task = new Task(req.body);
   await task.save();
-  res.json(task);
+  // Return the saved task with populated names immediately
+  const populatedTask = await Task.findById(task._id).populate('assignedTo', 'name email');
+  res.json(populatedTask);
 });
 
-// --- UPDATE TASK (Milestones & Status) ---
 app.put('/api/tasks/:id', async (req, res) => {
   try {
     const { milestones, status } = req.body;
     
-    // Auto-calculate progress
     let progress = 0;
     if (milestones && milestones.length > 0) {
       const completed = milestones.filter(m => m.status === 'Done').length;
       progress = Math.round((completed / milestones.length) * 100);
     }
 
-    // Auto-update status if progress is 100%
     let newStatus = status;
     if (progress === 100) newStatus = 'Completed';
     else if (progress > 0 && newStatus === 'Not Started') newStatus = 'In Progress';
@@ -88,7 +99,7 @@ app.put('/api/tasks/:id', async (req, res) => {
       req.params.id, 
       { milestones, progress, status: newStatus }, 
       { new: true }
-    );
+    ).populate('assignedTo', 'name email'); // Populate on update too
     res.json(updatedTask);
   } catch (err) { res.status(500).send('Server Error'); }
 });

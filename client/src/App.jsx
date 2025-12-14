@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Plus, User, ArrowLeft, CheckSquare, Square, Loader2, 
-  Calendar, ChevronRight, Clock
+  Calendar, ChevronRight, Clock, Users 
 } from 'lucide-react';
 
 // Live Backend Link
@@ -12,6 +12,7 @@ function App() {
   const [view, setView] = useState('login'); 
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [staffList, setStaffList] = useState([]); // <--- NEW: List of all staff
   const [selectedTask, setSelectedTask] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,7 +35,8 @@ function App() {
     title: '', 
     department: 'Management', 
     description: '', 
-    deadline: '' 
+    deadline: '',
+    assignedTo: [] // <--- NEW: To hold the selected staff ID
   });
   const [newMilestone, setNewMilestone] = useState('');
 
@@ -47,21 +49,26 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (view === 'dashboard') fetchTasks();
+    if (view === 'dashboard') {
+      fetchTasks();
+      fetchStaff(); // <--- NEW: Load staff list when dashboard opens
+    }
   }, [view]);
 
   const fetchTasks = () => {
     axios.get('/tasks').then(res => setTasks(res.data));
   };
 
-  // --- CALCULATE PROGRESS ---
+  const fetchStaff = () => {
+    axios.get('/users').then(res => setStaffList(res.data));
+  };
+
   const getProgress = (task) => {
     if (!task.milestones || task.milestones.length === 0) return 0;
     const completed = task.milestones.filter(m => m.status === 'Done').length;
     return Math.round((completed / task.milestones.length) * 100);
   };
 
-  // --- DETERMINE STATUS ---
   const getStatus = (task) => {
     const progress = getProgress(task);
     if (progress === 100) return 'Completed';
@@ -69,23 +76,16 @@ function App() {
     return 'Not Done';
   };
 
-  // --- FILTER LOGIC ---
   const getFilteredTasks = () => {
     return tasks.filter(task => {
-      // 1. Department Filter
       if (filterDept !== 'All' && task.department !== filterDept) return false;
-
-      // 2. Status Filter
       const status = getStatus(task);
       if (filterStatus === 'Completed' && status !== 'Completed') return false;
       if (filterStatus === 'Started' && status !== 'In Progress') return false;
       if (filterStatus === 'Not Done' && status !== 'Not Done') return false;
-
-      // 3. Date Filter
       if (dateRange.start) {
          const taskDate = new Date(task.createdAt);
-         const startDate = new Date(dateRange.start);
-         if (taskDate < startDate) return false;
+         if (taskDate < new Date(dateRange.start)) return false;
       }
       if (dateRange.end) {
          const taskDate = new Date(task.createdAt);
@@ -97,7 +97,6 @@ function App() {
     });
   };
 
-  // --- HANDLERS ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -160,8 +159,6 @@ function App() {
     fetchTasks();
   };
 
-  // --- VIEWS ---
-
   if (view === 'login') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
@@ -207,6 +204,10 @@ function App() {
 
   if (view === 'task-detail' && selectedTask) {
     const progress = getProgress(selectedTask);
+    const assignedName = selectedTask.assignedTo && selectedTask.assignedTo.length > 0 
+      ? selectedTask.assignedTo[0].name 
+      : 'Unassigned';
+
     return (
       <div className="min-h-screen bg-dark text-white p-4 md:p-8">
          <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6">
@@ -218,9 +219,14 @@ function App() {
                <div>
                   <span className="text-primary font-bold uppercase tracking-wider text-sm">{selectedTask.department}</span>
                   <h1 className="text-2xl md:text-3xl font-bold mt-2">{selectedTask.title}</h1>
-                  <p className="text-sm text-gray-400 mt-1 flex items-center gap-2">
-                    <Clock size={14} /> Deadline: {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Deadline'}
-                  </p>
+                  <div className="flex flex-col gap-1 mt-2">
+                     <p className="text-sm text-gray-400 flex items-center gap-2">
+                       <Clock size={14} /> Deadline: {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Deadline'}
+                     </p>
+                     <p className="text-sm text-gray-400 flex items-center gap-2">
+                       <User size={14} /> Assigned to: <span className="text-white font-bold">{assignedName}</span>
+                     </p>
+                  </div>
                </div>
                <div className="text-left md:text-right w-full md:w-auto bg-gray-900 md:bg-transparent p-4 md:p-0 rounded-lg">
                   <span className="block text-3xl md:text-4xl font-bold text-primary">{progress}%</span>
@@ -294,7 +300,7 @@ function App() {
                  <option value="Research and Development">R&D</option>
               </select>
            </div>
-
+           
            <div className="flex flex-col gap-1 w-full md:w-auto">
               <label className="text-xs text-gray-500 uppercase font-bold">Completion</label>
               <select className="bg-dark border border-gray-700 text-white p-2 rounded text-sm w-full md:w-32" 
@@ -336,13 +342,21 @@ function App() {
                 <option>Research and Development</option>
               </select>
 
+              {/* NEW: Assign To Staff Dropdown */}
+              <select className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
+                 onChange={e => setNewTask({...newTask, assignedTo: [e.target.value]})}>
+                 <option value="">Assign to Staff (Optional)</option>
+                 {staffList.map(staff => (
+                   <option key={staff._id} value={staff._id}>{staff.name} ({staff.role})</option>
+                 ))}
+              </select>
+
               <div className="col-span-1">
-                 <label className="text-xs text-gray-500 block mb-1">Deadline (Optional)</label>
                  <input type="date" className="w-full p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                    onChange={e => setNewTask({...newTask, deadline: e.target.value})} />
               </div>
 
-              <textarea placeholder="Description..." className="col-span-1 md:col-span-1 p-3 bg-dark border border-gray-700 rounded text-white h-24 md:h-full focus:border-primary outline-none"
+              <textarea placeholder="Description..." className="col-span-1 md:col-span-2 p-3 bg-dark border border-gray-700 rounded text-white h-24 focus:border-primary outline-none"
                 onChange={e => setNewTask({...newTask, description: e.target.value})}></textarea>
               
               <button disabled={loading} className="col-span-1 md:col-span-2 bg-primary py-3 rounded font-bold flex justify-center items-center gap-2 hover:opacity-90 disabled:opacity-50">
@@ -352,10 +366,11 @@ function App() {
           </div>
         )}
 
-        {/* --- MOBILE VIEW (CARDS) - Visible only on small screens --- */}
+        {/* --- MOBILE VIEW --- */}
         <div className="md:hidden space-y-4">
           {getFilteredTasks().map(task => {
             const progress = getProgress(task);
+            const assignedName = task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0].name : "Unassigned";
             return (
               <div key={task._id} onClick={() => openTask(task)} className="bg-card p-5 rounded-xl border border-gray-800 active:scale-[0.98] transition-transform shadow-lg">
                  <div className="flex justify-between items-start mb-3">
@@ -365,11 +380,11 @@ function App() {
                     </span>
                  </div>
                  <h3 className="text-lg font-bold text-white mb-1">{task.title}</h3>
-                 <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-                   <Calendar size={14}/> {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline'}
-                 </p>
+                 <div className="text-sm text-gray-500 mb-4 space-y-1">
+                   <p className="flex items-center gap-2"><Calendar size={14}/> {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline'}</p>
+                   <p className="flex items-center gap-2"><User size={14}/> {assignedName}</p>
+                 </div>
                  
-                 {/* Mini Progress Bar */}
                  <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden mb-4">
                      <div className={`h-full ${progress === 100 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${progress}%` }}></div>
                  </div>
@@ -386,7 +401,7 @@ function App() {
            )}
         </div>
 
-        {/* --- DESKTOP VIEW (TABLE) - Visible only on medium screens and up --- */}
+        {/* --- DESKTOP VIEW --- */}
         <div className="hidden md:block bg-card rounded-lg border border-gray-800 overflow-hidden shadow-xl">
           <table className="w-full text-left text-sm text-gray-400">
             <thead className="bg-gray-900 text-gray-200 uppercase font-bold text-xs tracking-wider">
@@ -402,6 +417,9 @@ function App() {
             <tbody className="divide-y divide-gray-800">
                {getFilteredTasks().map((task) => {
                   const progress = getProgress(task);
+                  // Check if there is an assigned staff and get their name
+                  const assignedName = task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0].name : "Unassigned";
+                  
                   return (
                     <tr key={task._id} onClick={() => openTask(task)} className="hover:bg-gray-800/50 cursor-pointer transition-colors group">
                        <td className="p-4 text-white font-medium relative max-w-[200px]">
@@ -409,7 +427,13 @@ function App() {
                           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent group-hover:from-gray-800 pointer-events-none"></div>
                        </td>
                        <td className="p-4"><span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{task.department}</span></td>
-                       <td className="p-4 text-gray-500 italic">{task.department} Team</td>
+                       
+                       {/* Display Actual Staff Name */}
+                       <td className="p-4 text-gray-300 flex items-center gap-2">
+                          <User size={14} className="text-gray-500"/>
+                          {assignedName}
+                       </td>
+
                        <td className="p-4">
                           <div className="flex items-center gap-2">
                              <span className={`font-bold ${progress === 100 ? 'text-green-500' : 'text-primary'}`}>{progress}%</span>
