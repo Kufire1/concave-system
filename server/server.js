@@ -33,7 +33,10 @@ const TaskSchema = new mongoose.Schema({
   milestones: [{
     title: String,
     status: { type: String, default: 'Not Done' } // Not Done, Done
-  }]
+  }],
+  // --- NEW FIELDS ADDED BELOW ---
+  createdAt: { type: Date, default: Date.now }, // Required for "Date Created" filter
+  deadline: Date // Required for your new Deadline column
 });
 const Task = mongoose.model('Task', TaskSchema);
 
@@ -64,7 +67,7 @@ app.post('/api/tasks', async (req, res) => {
   res.json(task);
 });
 
-// --- NEW ROUTE: UPDATE TASK (Milestones & Status) ---
+// --- UPDATE TASK (Milestones & Status) ---
 app.put('/api/tasks/:id', async (req, res) => {
   try {
     const { milestones, status } = req.body;
