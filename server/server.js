@@ -27,7 +27,6 @@ const TaskSchema = new mongoose.Schema({
   title: String,
   description: String,
   department: String,
-  // This links to the User model
   assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
   status: { type: String, default: 'Not Started' },
   progress: { type: Number, default: 0 },
@@ -42,10 +41,9 @@ const Task = mongoose.model('Task', TaskSchema);
 
 // Routes
 
-// 1. GET ALL USERS (The "Phonebook" for the dropdown)
+// GET ALL USERS
 app.get('/api/users', async (req, res) => {
   try {
-    // Get all users, but hide their passwords
     const users = await User.find().select('-password'); 
     res.json(users);
   } catch (err) { res.status(500).send('Server Error'); }
@@ -66,42 +64,61 @@ app.post('/api/login', async (req, res) => {
   res.json(user);
 });
 
-// 2. GET TASKS (Now with "Populate" to show real names)
+// GET TASKS
 app.get('/api/tasks', async (req, res) => {
-  // .populate('assignedTo') swaps the ID number for the actual User object
   const tasks = await Task.find().populate('assignedTo', 'name email'); 
   res.json(tasks);
 });
 
+// CREATE TASK
 app.post('/api/tasks', async (req, res) => {
   const task = new Task(req.body);
   await task.save();
-  // Return the saved task with populated names immediately
   const populatedTask = await Task.findById(task._id).populate('assignedTo', 'name email');
   res.json(populatedTask);
 });
 
+// --- UPDATED: EDIT TASK (Handles Text Updates AND Milestones) ---
 app.put('/api/tasks/:id', async (req, res) => {
   try {
-    const { milestones, status } = req.body;
+    // We now accept title, description, deadline, assignedTo, AND milestones
+    const { title, description, department, deadline, assignedTo, milestones, status } = req.body;
     
-    let progress = 0;
-    if (milestones && milestones.length > 0) {
-      const completed = milestones.filter(m => m.status === 'Done').length;
-      progress = Math.round((completed / milestones.length) * 100);
-    }
+    // Auto-calculate progress ONLY if milestones are being updated
+    let updateData = { title, description, department, deadline, assignedTo, status };
+    
+    if (milestones) {
+      updateData.milestones = milestones;
+      if (milestones.length > 0) {
+        const completed = milestones.filter(m => m.status === 'Done').length;
+        updateData.progress = Math.round((completed / milestones.length) * 100);
+      } else {
+        updateData.progress = 0;
+      }
 
-    let newStatus = status;
-    if (progress === 100) newStatus = 'Completed';
-    else if (progress > 0 && newStatus === 'Not Started') newStatus = 'In Progress';
+      // Update status based on progress
+      if (updateData.progress === 100) updateData.status = 'Completed';
+      else if (updateData.progress > 0) updateData.status = 'In Progress';
+    }
 
     const updatedTask = await Task.findByIdAndUpdate(
       req.params.id, 
-      { milestones, progress, status: newStatus }, 
+      updateData, 
       { new: true }
-    ).populate('assignedTo', 'name email'); // Populate on update too
+    ).populate('assignedTo', 'name email');
+    
     res.json(updatedTask);
   } catch (err) { res.status(500).send('Server Error'); }
+});
+
+// --- NEW: DELETE TASK ROUTE ---
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    await Task.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Task Deleted' });
+  } catch (err) {
+    res.status(500).send('Server Error');
+  }
 });
 
 const PORT = process.env.PORT || 5000;

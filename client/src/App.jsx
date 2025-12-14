@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Plus, User, ArrowLeft, CheckSquare, Square, Loader2, 
-  Calendar, ChevronRight, Clock, Users 
+  Calendar, ChevronRight, Clock, Edit, Trash2, Save, X 
 } from 'lucide-react';
 
 // Live Backend Link
@@ -12,17 +12,18 @@ function App() {
   const [view, setView] = useState('login'); 
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
-  const [staffList, setStaffList] = useState([]); // <--- NEW: List of all staff
+  const [staffList, setStaffList] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false); // <--- NEW: Edit Mode State
   
   // --- FILTERS STATE ---
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // Login/Register Inputs
+  // Inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [regName, setRegName] = useState('');
@@ -30,15 +31,13 @@ function App() {
   const [regPassword, setRegPassword] = useState('');
   const [regRole, setRegRole] = useState('staff');
 
-  // New Task Inputs
   const [newTask, setNewTask] = useState({ 
-    title: '', 
-    department: 'Management', 
-    description: '', 
-    deadline: '',
-    assignedTo: [] // <--- NEW: To hold the selected staff ID
+    title: '', department: 'Management', description: '', deadline: '', assignedTo: [] 
   });
   const [newMilestone, setNewMilestone] = useState('');
+
+  // --- NEW: EDIT STATE HOLDER ---
+  const [editData, setEditData] = useState({});
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -51,7 +50,7 @@ function App() {
   useEffect(() => {
     if (view === 'dashboard') {
       fetchTasks();
-      fetchStaff(); // <--- NEW: Load staff list when dashboard opens
+      fetchStaff();
     }
   }, [view]);
 
@@ -139,7 +138,44 @@ function App() {
 
   const openTask = (task) => {
     setSelectedTask({ ...task, progress: getProgress(task) });
+    // Prepare edit data in case we want to edit
+    setEditData({
+       title: task.title,
+       description: task.description,
+       department: task.department,
+       deadline: task.deadline ? task.deadline.split('T')[0] : '', // Format for date input
+       assignedTo: task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0]._id : ''
+    });
+    setIsEditing(false); // Default to view mode
     setView('task-detail');
+  };
+
+  // --- NEW: DELETE FUNCTION ---
+  const handleDeleteTask = async () => {
+    if (!window.confirm("Are you sure you want to delete this task? This cannot be undone.")) return;
+    try {
+      await axios.delete(`/tasks/${selectedTask._id}`);
+      fetchTasks();
+      setView('dashboard');
+    } catch (err) { alert("Failed to delete task"); }
+  };
+
+  // --- NEW: SAVE EDIT FUNCTION ---
+  const handleSaveEdit = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.put(`/tasks/${selectedTask._id}`, {
+         title: editData.title,
+         description: editData.description,
+         department: editData.department,
+         deadline: editData.deadline,
+         assignedTo: editData.assignedTo ? [editData.assignedTo] : []
+      });
+      setSelectedTask({ ...res.data, progress: getProgress(res.data) });
+      setIsEditing(false);
+      fetchTasks(); // Refresh list
+    } catch (err) { alert("Failed to update task"); }
+    finally { setLoading(false); }
   };
 
   const addMilestone = async () => {
@@ -208,40 +244,113 @@ function App() {
       ? selectedTask.assignedTo[0].name 
       : 'Unassigned';
 
+    // Only Boss/Admin/HOD can edit or delete
+    const canEdit = ['creator', 'admin', 'hod'].includes(user.role);
+
     return (
       <div className="min-h-screen bg-dark text-white p-4 md:p-8">
-         <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6">
-           <ArrowLeft size={20} /> Back to Dashboard
-         </button>
+         <div className="flex justify-between items-center mb-6">
+            <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-gray-400 hover:text-white">
+               <ArrowLeft size={20} /> Back to Dashboard
+            </button>
+            
+            {/* --- ACTION BUTTONS (EDIT/DELETE) --- */}
+            {canEdit && !isEditing && (
+              <div className="flex gap-2">
+                 <button onClick={() => setIsEditing(true)} className="p-2 bg-gray-800 rounded hover:bg-primary text-white transition">
+                    <Edit size={18} />
+                 </button>
+                 <button onClick={handleDeleteTask} className="p-2 bg-gray-800 rounded hover:bg-red-600 text-red-400 hover:text-white transition">
+                    <Trash2 size={18} />
+                 </button>
+              </div>
+            )}
+            
+            {/* --- SAVE/CANCEL BUTTONS (EDIT MODE) --- */}
+            {isEditing && (
+              <div className="flex gap-2">
+                 <button onClick={handleSaveEdit} className="flex items-center gap-1 px-4 py-2 bg-green-600 rounded hover:bg-green-500 font-bold transition">
+                    <Save size={18} /> Save
+                 </button>
+                 <button onClick={() => setIsEditing(false)} className="flex items-center gap-1 px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 font-bold transition">
+                    <X size={18} /> Cancel
+                 </button>
+              </div>
+            )}
+         </div>
 
          <div className="max-w-3xl mx-auto bg-card p-6 md:p-8 rounded-xl border border-gray-800">
             <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
-               <div>
-                  <span className="text-primary font-bold uppercase tracking-wider text-sm">{selectedTask.department}</span>
-                  <h1 className="text-2xl md:text-3xl font-bold mt-2">{selectedTask.title}</h1>
+               <div className="w-full">
+                  
+                  {/* --- DEPARTMENT & TITLE --- */}
+                  {isEditing ? (
+                    <div className="space-y-2 mb-4">
+                      <select className="p-2 bg-dark border border-gray-700 rounded text-white text-sm w-full"
+                         value={editData.department} onChange={e => setEditData({...editData, department: e.target.value})}>
+                          <option>Management</option><option>Operation</option><option>Marketing</option>
+                          <option>Finance</option><option>Media</option><option>Research and Development</option>
+                      </select>
+                      <input className="text-2xl font-bold bg-dark border border-gray-700 rounded p-2 w-full text-white" 
+                         value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} />
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-primary font-bold uppercase tracking-wider text-sm">{selectedTask.department}</span>
+                      <h1 className="text-2xl md:text-3xl font-bold mt-2">{selectedTask.title}</h1>
+                    </>
+                  )}
+
+                  {/* --- METADATA (Deadline/Assigned) --- */}
                   <div className="flex flex-col gap-1 mt-2">
-                     <p className="text-sm text-gray-400 flex items-center gap-2">
-                       <Clock size={14} /> Deadline: {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Deadline'}
-                     </p>
-                     <p className="text-sm text-gray-400 flex items-center gap-2">
-                       <User size={14} /> Assigned to: <span className="text-white font-bold">{assignedName}</span>
-                     </p>
+                     <div className="text-sm text-gray-400 flex items-center gap-2">
+                       <Clock size={14} /> 
+                       {isEditing ? (
+                          <input type="date" className="bg-dark border border-gray-700 p-1 rounded text-white" 
+                             value={editData.deadline} onChange={e => setEditData({...editData, deadline: e.target.value})} />
+                       ) : (
+                          `Deadline: ${selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Deadline'}`
+                       )}
+                     </div>
+                     
+                     <div className="text-sm text-gray-400 flex items-center gap-2">
+                       <User size={14} /> 
+                       {isEditing ? (
+                          <select className="bg-dark border border-gray-700 p-1 rounded text-white w-full md:w-64"
+                            value={editData.assignedTo} onChange={e => setEditData({...editData, assignedTo: e.target.value})}>
+                            <option value="">Unassigned</option>
+                            {staffList.map(staff => (
+                              <option key={staff._id} value={staff._id}>{staff.name} ({staff.role})</option>
+                            ))}
+                          </select>
+                       ) : (
+                          <>Assigned to: <span className="text-white font-bold">{assignedName}</span></>
+                       )}
+                     </div>
                   </div>
                </div>
-               <div className="text-left md:text-right w-full md:w-auto bg-gray-900 md:bg-transparent p-4 md:p-0 rounded-lg">
+               
+               {/* Progress Circle (Always visible, not editable manually) */}
+               <div className="text-left md:text-right w-full md:w-auto bg-gray-900 md:bg-transparent p-4 md:p-0 rounded-lg shrink-0">
                   <span className="block text-3xl md:text-4xl font-bold text-primary">{progress}%</span>
                   <span className="text-sm text-gray-500">Completed</span>
                </div>
             </div>
 
-            <p className="text-gray-300 mb-8 p-4 bg-dark rounded border border-gray-700 whitespace-pre-wrap">
-               {selectedTask.description}
-            </p>
+            {/* --- DESCRIPTION --- */}
+            {isEditing ? (
+               <textarea className="w-full h-32 p-3 bg-dark border border-gray-700 rounded text-white mb-8"
+                  value={editData.description} onChange={e => setEditData({...editData, description: e.target.value})} />
+            ) : (
+               <p className="text-gray-300 mb-8 p-4 bg-dark rounded border border-gray-700 whitespace-pre-wrap">
+                  {selectedTask.description}
+               </p>
+            )}
 
             <h3 className="text-xl font-bold mb-4">Milestones</h3>
             <div className="space-y-3 mb-8">
                {selectedTask.milestones?.map((ms, index) => (
-                  <div key={index} onClick={() => toggleMilestone(index)} className="flex items-center gap-4 p-4 rounded bg-dark border border-gray-800 hover:border-primary cursor-pointer transition-all">
+                  <div key={index} onClick={() => !isEditing && toggleMilestone(index)} className={`flex items-center gap-4 p-4 rounded bg-dark border border-gray-800 transition-all ${!isEditing ? 'hover:border-primary cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}>
                      {ms.status === 'Done' ? <CheckSquare className="text-green-500 shrink-0" /> : <Square className="text-gray-500 shrink-0" />}
                      <span className={ms.status === 'Done' ? "text-gray-500 line-through" : "text-white"}>{ms.title}</span>
                   </div>
@@ -249,16 +358,18 @@ function App() {
                {(!selectedTask.milestones || selectedTask.milestones.length === 0) && <p className="text-gray-500 italic">No milestones set yet.</p>}
             </div>
 
-            <div className="flex gap-2">
-               <input className="flex-1 p-3 bg-dark border border-gray-700 rounded text-white" placeholder="Add milestone..." value={newMilestone} onChange={e => setNewMilestone(e.target.value)} />
-               <button onClick={addMilestone} className="bg-primary px-6 rounded font-bold hover:opacity-90">Add</button>
-            </div>
+            {!isEditing && (
+              <div className="flex gap-2">
+                 <input className="flex-1 p-3 bg-dark border border-gray-700 rounded text-white" placeholder="Add milestone..." value={newMilestone} onChange={e => setNewMilestone(e.target.value)} />
+                 <button onClick={addMilestone} className="bg-primary px-6 rounded font-bold hover:opacity-90">Add</button>
+              </div>
+            )}
          </div>
       </div>
     );
   }
 
-  // --- DASHBOARD ---
+  // --- DASHBOARD (Unchanged) ---
   return (
     <div className="min-h-screen bg-dark text-white font-sans pb-10">
       <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
@@ -342,7 +453,6 @@ function App() {
                 <option>Research and Development</option>
               </select>
 
-              {/* NEW: Assign To Staff Dropdown */}
               <select className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                  onChange={e => setNewTask({...newTask, assignedTo: [e.target.value]})}>
                  <option value="">Assign to Staff (Optional)</option>
@@ -417,7 +527,6 @@ function App() {
             <tbody className="divide-y divide-gray-800">
                {getFilteredTasks().map((task) => {
                   const progress = getProgress(task);
-                  // Check if there is an assigned staff and get their name
                   const assignedName = task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0].name : "Unassigned";
                   
                   return (
@@ -427,13 +536,10 @@ function App() {
                           <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent group-hover:from-gray-800 pointer-events-none"></div>
                        </td>
                        <td className="p-4"><span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{task.department}</span></td>
-                       
-                       {/* Display Actual Staff Name */}
                        <td className="p-4 text-gray-300 flex items-center gap-2">
                           <User size={14} className="text-gray-500"/>
                           {assignedName}
                        </td>
-
                        <td className="p-4">
                           <div className="flex items-center gap-2">
                              <span className={`font-bold ${progress === 100 ? 'text-green-500' : 'text-primary'}`}>{progress}%</span>
