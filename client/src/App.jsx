@@ -2,18 +2,27 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BarChart2, Plus, CheckCircle, User, ArrowLeft, CheckSquare, Square } from 'lucide-react';
 
+// ensure this points to your live Render backend
 axios.defaults.baseURL = 'https://concave-system.onrender.com/api';
 
 function App() {
-  const [view, setView] = useState('login'); // login, dashboard, task-detail
+  const [view, setView] = useState('login'); // login, register, dashboard, task-detail
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null); // The task currently open
   const [showCreate, setShowCreate] = useState(false);
   
-  // Inputs
+  // Login Inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Register Inputs (NEW)
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regRole, setRegRole] = useState('creator'); // Default to creator
+
+  // Task Inputs
   const [newTask, setNewTask] = useState({ title: '', department: 'Management', description: '' });
   const [newMilestone, setNewMilestone] = useState('');
 
@@ -43,6 +52,23 @@ function App() {
     } catch (err) { alert('Login Failed'); }
   };
 
+  // --- NEW REGISTER FUNCTION ---
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('/register', { 
+        name: regName, 
+        email: regEmail, 
+        password: regPassword, 
+        role: regRole 
+      });
+      alert('Account Created Successfully! Please Login.');
+      setView('login'); // Switch back to login screen
+    } catch (err) { 
+      alert('Registration Failed. Email might be taken.'); 
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('user');
     setView('login');
@@ -59,13 +85,13 @@ function App() {
     } catch (err) { alert('Error creating task'); }
   };
 
-  // --- NEW: Open a Task ---
+  // --- Open a Task ---
   const openTask = (task) => {
     setSelectedTask(task);
     setView('task-detail');
   };
 
-  // --- NEW: Add a Milestone ---
+  // --- Add a Milestone ---
   const addMilestone = async () => {
     if (!newMilestone) return;
     const updatedMilestones = [...selectedTask.milestones, { title: newMilestone, status: 'Not Done' }];
@@ -77,7 +103,7 @@ function App() {
     setNewMilestone('');
   };
 
-  // --- NEW: Tick a Box ---
+  // --- Tick a Box ---
   const toggleMilestone = async (index) => {
     const updatedMilestones = [...selectedTask.milestones];
     const currentStatus = updatedMilestones[index].status;
@@ -99,6 +125,43 @@ function App() {
             <input type="password" className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
             <button className="w-full bg-primary py-3 rounded font-bold hover:opacity-90">Login</button>
           </form>
+          
+          {/* NEW: Switch to Register View */}
+          <div className="mt-4 text-center">
+             <button onClick={() => setView('register')} className="text-xs text-gray-500 hover:text-primary underline">
+               Create Admin Account
+             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- NEW: REGISTER PAGE ---
+  if (view === 'register') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dark text-white">
+        <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800">
+          <h1 className="text-2xl font-bold text-primary mb-6 text-center">CREATE ACCOUNT</h1>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <input required className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
+            <input required className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
+            <input required type="password" className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Password" value={regPassword} onChange={e => setRegPassword(e.target.value)} />
+            
+            <label className="block text-sm text-gray-400 pl-1">Role</label>
+            <select className="w-full p-3 bg-dark border border-gray-700 rounded text-white" value={regRole} onChange={e => setRegRole(e.target.value)}>
+               <option value="creator">Creator (Admin)</option>
+               <option value="staff">Staff</option>
+            </select>
+
+            <button className="w-full bg-primary py-3 rounded font-bold hover:opacity-90">Register</button>
+          </form>
+          
+          <div className="mt-4 text-center">
+             <button onClick={() => setView('login')} className="text-sm text-gray-400 hover:text-white">
+               Back to Login
+             </button>
+          </div>
         </div>
       </div>
     );
@@ -134,8 +197,8 @@ function App() {
             <div className="space-y-3 mb-8">
                {selectedTask.milestones.map((ms, index) => (
                   <div key={index} 
-                       onClick={() => toggleMilestone(index)}
-                       className="flex items-center gap-4 p-4 rounded bg-dark border border-gray-800 hover:border-primary cursor-pointer transition-all">
+                        onClick={() => toggleMilestone(index)}
+                        className="flex items-center gap-4 p-4 rounded bg-dark border border-gray-800 hover:border-primary cursor-pointer transition-all">
                      {ms.status === 'Done' 
                         ? <CheckSquare className="text-green-500" /> 
                         : <Square className="text-gray-500" />}
