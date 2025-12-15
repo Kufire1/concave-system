@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Plus, User, ArrowLeft, CheckSquare, Square, Loader2, 
-  Calendar, ChevronRight, Clock, Edit, Trash2, Save, X 
+  Calendar, ChevronRight, Clock, Edit, Trash2, Save, X, UserPlus 
 } from 'lucide-react';
 
 // Live Backend Link
@@ -14,29 +14,36 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // <--- NEW: Edit Mode State
   
-  // --- FILTERS STATE ---
+  // Modals
+  const [showCreate, setShowCreate] = useState(false);
+  const [showAddUser, setShowAddUser] = useState(false); // <--- NEW: Controls Add User Modal
+  
+  const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Filters
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  // Inputs
+  // Login Inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Add User Inputs (Moved to Dashboard)
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regRole, setRegRole] = useState('staff');
 
+  // New Task Inputs
   const [newTask, setNewTask] = useState({ 
     title: '', department: 'Management', description: '', deadline: '', assignedTo: [] 
   });
   const [newMilestone, setNewMilestone] = useState('');
 
-  // --- NEW: EDIT STATE HOLDER ---
+  // Edit Data
   const [editData, setEditData] = useState({});
 
   useEffect(() => {
@@ -108,14 +115,18 @@ function App() {
     finally { setLoading(false); }
   };
 
-  const handleRegister = async (e) => {
+  // --- NEW: HANDLE ADD USER (Internal) ---
+  const handleAddUser = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       await axios.post('/register', { name: regName, email: regEmail, password: regPassword, role: regRole });
-      alert('Account Created! Please Login.');
-      setView('login');
-    } catch (err) { alert('Registration Failed.'); } 
+      alert('New User Added Successfully!');
+      setShowAddUser(false);
+      fetchStaff(); // Refresh the list so they appear in dropdowns immediately
+      // Reset form
+      setRegName(''); setRegEmail(''); setRegPassword(''); setRegRole('staff');
+    } catch (err) { alert('Failed to add user. Email might be taken.'); } 
     finally { setLoading(false); }
   };
 
@@ -138,19 +149,17 @@ function App() {
 
   const openTask = (task) => {
     setSelectedTask({ ...task, progress: getProgress(task) });
-    // Prepare edit data in case we want to edit
     setEditData({
        title: task.title,
        description: task.description,
        department: task.department,
-       deadline: task.deadline ? task.deadline.split('T')[0] : '', // Format for date input
+       deadline: task.deadline ? task.deadline.split('T')[0] : '',
        assignedTo: task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0]._id : ''
     });
-    setIsEditing(false); // Default to view mode
+    setIsEditing(false);
     setView('task-detail');
   };
 
-  // --- NEW: DELETE FUNCTION ---
   const handleDeleteTask = async () => {
     if (!window.confirm("Are you sure you want to delete this task? This cannot be undone.")) return;
     try {
@@ -160,7 +169,6 @@ function App() {
     } catch (err) { alert("Failed to delete task"); }
   };
 
-  // --- NEW: SAVE EDIT FUNCTION ---
   const handleSaveEdit = async () => {
     try {
       setLoading(true);
@@ -169,11 +177,12 @@ function App() {
          description: editData.description,
          department: editData.department,
          deadline: editData.deadline,
-         assignedTo: editData.assignedTo ? [editData.assignedTo] : []
+         assignedTo: editData.assignedTo ? [editData.assignedTo] : [],
+         status: selectedTask.status
       });
       setSelectedTask({ ...res.data, progress: getProgress(res.data) });
       setIsEditing(false);
-      fetchTasks(); // Refresh list
+      fetchTasks();
     } catch (err) { alert("Failed to update task"); }
     finally { setLoading(false); }
   };
@@ -195,6 +204,7 @@ function App() {
     fetchTasks();
   };
 
+  // --- LOGIN PAGE (Clean - No Register Button) ---
   if (view === 'login') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
@@ -207,32 +217,7 @@ function App() {
               {loading ? <Loader2 className="animate-spin" /> : "Login"}
             </button>
           </form>
-          <button onClick={() => setView('register')} className="w-full mt-4 text-xs text-gray-500 hover:text-primary underline">Create Account</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'register') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dark text-white">
-        <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800 m-4">
-          <h1 className="text-2xl font-bold text-primary mb-6 text-center">CREATE ACCOUNT</h1>
-          <form onSubmit={handleRegister} className="space-y-4">
-            <input required className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
-            <input required className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
-            <input required type="password" className="w-full p-3 bg-dark border border-gray-700 rounded" placeholder="Password" value={regPassword} onChange={e => setRegPassword(e.target.value)} />
-            <select className="w-full p-3 bg-dark border border-gray-700 rounded text-white" value={regRole} onChange={e => setRegRole(e.target.value)}>
-               <option value="creator">Creator (Boss)</option>
-               <option value="admin">Admin</option>
-               <option value="hod">HOD</option>
-               <option value="staff">Staff</option>
-            </select>
-            <button disabled={loading} className="w-full bg-primary py-3 rounded font-bold hover:opacity-90 disabled:opacity-50 flex justify-center gap-2">
-               {loading ? <Loader2 className="animate-spin" /> : "Register"}
-            </button>
-          </form>
-          <button onClick={() => setView('login')} className="w-full mt-4 text-sm text-gray-400 hover:text-white">Back to Login</button>
+          {/* Public Register Button Removed */}
         </div>
       </div>
     );
@@ -243,8 +228,6 @@ function App() {
     const assignedName = selectedTask.assignedTo && selectedTask.assignedTo.length > 0 
       ? selectedTask.assignedTo[0].name 
       : 'Unassigned';
-
-    // Only Boss/Admin/HOD can edit or delete
     const canEdit = ['creator', 'admin', 'hod'].includes(user.role);
 
     return (
@@ -253,28 +236,16 @@ function App() {
             <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-gray-400 hover:text-white">
                <ArrowLeft size={20} /> Back to Dashboard
             </button>
-            
-            {/* --- ACTION BUTTONS (EDIT/DELETE) --- */}
             {canEdit && !isEditing && (
               <div className="flex gap-2">
-                 <button onClick={() => setIsEditing(true)} className="p-2 bg-gray-800 rounded hover:bg-primary text-white transition">
-                    <Edit size={18} />
-                 </button>
-                 <button onClick={handleDeleteTask} className="p-2 bg-gray-800 rounded hover:bg-red-600 text-red-400 hover:text-white transition">
-                    <Trash2 size={18} />
-                 </button>
+                 <button onClick={() => setIsEditing(true)} className="p-2 bg-gray-800 rounded hover:bg-primary text-white transition"><Edit size={18} /></button>
+                 <button onClick={handleDeleteTask} className="p-2 bg-gray-800 rounded hover:bg-red-600 text-red-400 hover:text-white transition"><Trash2 size={18} /></button>
               </div>
             )}
-            
-            {/* --- SAVE/CANCEL BUTTONS (EDIT MODE) --- */}
             {isEditing && (
               <div className="flex gap-2">
-                 <button onClick={handleSaveEdit} className="flex items-center gap-1 px-4 py-2 bg-green-600 rounded hover:bg-green-500 font-bold transition">
-                    <Save size={18} /> Save
-                 </button>
-                 <button onClick={() => setIsEditing(false)} className="flex items-center gap-1 px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 font-bold transition">
-                    <X size={18} /> Cancel
-                 </button>
+                 <button onClick={handleSaveEdit} className="flex items-center gap-1 px-4 py-2 bg-green-600 rounded hover:bg-green-500 font-bold transition"><Save size={18} /> Save</button>
+                 <button onClick={() => setIsEditing(false)} className="flex items-center gap-1 px-4 py-2 bg-gray-700 rounded hover:bg-gray-600 font-bold transition"><X size={18} /> Cancel</button>
               </div>
             )}
          </div>
@@ -282,8 +253,6 @@ function App() {
          <div className="max-w-3xl mx-auto bg-card p-6 md:p-8 rounded-xl border border-gray-800">
             <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
                <div className="w-full">
-                  
-                  {/* --- DEPARTMENT & TITLE --- */}
                   {isEditing ? (
                     <div className="space-y-2 mb-4">
                       <select className="p-2 bg-dark border border-gray-700 rounded text-white text-sm w-full"
@@ -301,7 +270,6 @@ function App() {
                     </>
                   )}
 
-                  {/* --- METADATA (Deadline/Assigned) --- */}
                   <div className="flex flex-col gap-1 mt-2">
                      <div className="text-sm text-gray-400 flex items-center gap-2">
                        <Clock size={14} /> 
@@ -312,7 +280,6 @@ function App() {
                           `Deadline: ${selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Deadline'}`
                        )}
                      </div>
-                     
                      <div className="text-sm text-gray-400 flex items-center gap-2">
                        <User size={14} /> 
                        {isEditing ? (
@@ -330,14 +297,12 @@ function App() {
                   </div>
                </div>
                
-               {/* Progress Circle (Always visible, not editable manually) */}
                <div className="text-left md:text-right w-full md:w-auto bg-gray-900 md:bg-transparent p-4 md:p-0 rounded-lg shrink-0">
                   <span className="block text-3xl md:text-4xl font-bold text-primary">{progress}%</span>
                   <span className="text-sm text-gray-500">Completed</span>
                </div>
             </div>
 
-            {/* --- DESCRIPTION --- */}
             {isEditing ? (
                <textarea className="w-full h-32 p-3 bg-dark border border-gray-700 rounded text-white mb-8"
                   value={editData.description} onChange={e => setEditData({...editData, description: e.target.value})} />
@@ -369,7 +334,7 @@ function App() {
     );
   }
 
-  // --- DASHBOARD (Unchanged) ---
+  // --- DASHBOARD ---
   return (
     <div className="min-h-screen bg-dark text-white font-sans pb-10">
       <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
@@ -389,11 +354,21 @@ function App() {
             <h2 className="text-2xl md:text-3xl font-bold mb-1">Dashboard</h2>
             <p className="text-gray-400 text-sm">Task Overview & Management</p>
           </div>
-          {['creator', 'admin', 'hod'].includes(user.role) && (
-            <button onClick={() => setShowCreate(!showCreate)} className="bg-primary px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-purple-600 transition w-full md:w-auto shadow-lg shadow-purple-900/20">
-              <Plus size={18} /> New Task
-            </button>
-          )}
+          
+          <div className="flex gap-2 w-full md:w-auto">
+            {/* --- NEW: ADD USER BUTTON (Only for Creator) --- */}
+            {user.role === 'creator' && (
+               <button onClick={() => setShowAddUser(true)} className="bg-gray-800 border border-gray-700 text-white px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-gray-700 transition w-full md:w-auto">
+                 <UserPlus size={18} /> Add Staff
+               </button>
+            )}
+
+            {['creator', 'admin', 'hod'].includes(user.role) && (
+              <button onClick={() => setShowCreate(!showCreate)} className="bg-primary px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-purple-600 transition w-full md:w-auto shadow-lg shadow-purple-900/20">
+                <Plus size={18} /> New Task
+              </button>
+            )}
+          </div>
         </div>
 
         {/* --- FILTERS TOOLBAR --- */}
@@ -435,10 +410,40 @@ function App() {
            </div>
         </div>
 
+        {/* --- NEW: ADD USER MODAL --- */}
+        {showAddUser && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+             <div className="bg-card p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl relative">
+                <button onClick={() => setShowAddUser(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
+                <h3 className="text-xl font-bold mb-4 text-white">Add New Staff</h3>
+                <form onSubmit={handleAddUser} className="space-y-4">
+                   <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
+                   <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
+                   <input required type="password" className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Password" value={regPassword} onChange={e => setRegPassword(e.target.value)} />
+                   
+                   <label className="block text-sm text-gray-400 pl-1">Role</label>
+                   <select className="w-full p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none" value={regRole} onChange={e => setRegRole(e.target.value)}>
+                      <option value="creator">Creator (Boss)</option>
+                      <option value="admin">Admin</option>
+                      <option value="hod">HOD</option>
+                      <option value="staff">Staff</option>
+                   </select>
+
+                   <button disabled={loading} className="w-full bg-primary py-3 rounded font-bold hover:opacity-90 disabled:opacity-50 flex justify-center gap-2">
+                      {loading ? <Loader2 className="animate-spin" /> : "Create User"}
+                   </button>
+                </form>
+             </div>
+          </div>
+        )}
+
         {/* --- CREATE TASK FORM --- */}
         {showCreate && (
           <div className="bg-card p-6 rounded-xl border border-gray-700 mb-8 animate-fade-in shadow-2xl">
-            <h3 className="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Assign New Task</h3>
+            <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+               <h3 className="text-xl font-bold text-white">Assign New Task</h3>
+               <button onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-white"><X size={20}/></button>
+            </div>
             <form onSubmit={handleCreateTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input required placeholder="Task Title" className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none" 
                 onChange={e => setNewTask({...newTask, title: e.target.value})} />
