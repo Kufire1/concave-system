@@ -123,16 +123,16 @@ function App() {
       alert('New User Added Successfully!');
       fetchStaff(); 
       setRegName(''); setRegEmail(''); setRegPassword(''); setRegRole('staff');
+      setShowAddUser(false); // Close modal on success
     } catch (err) { alert('Failed to add user.'); } 
     finally { setLoading(false); }
   };
 
-  // --- NEW: DELETE USER FUNCTION ---
   const handleDeleteUser = async (id, name) => {
     if(!window.confirm(`Are you sure you want to delete ${name}? They will lose access immediately.`)) return;
     try {
       await axios.delete(`/users/${id}`);
-      fetchStaff(); // Refresh list immediately
+      fetchStaff(); 
     } catch (err) { alert('Failed to delete user'); }
   };
 
@@ -417,9 +417,9 @@ function App() {
         {showAddUser && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
              <div className="bg-card p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl relative my-8">
+                {/* Cancel Button Top Right (Icon) */}
                 <button onClick={() => setShowAddUser(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
                 
-                {/* 1. LIST EXISTING USERS */}
                 <h3 className="text-lg font-bold mb-3 text-white border-b border-gray-700 pb-2">Existing Staff</h3>
                 <div className="max-h-40 overflow-y-auto space-y-2 mb-6 pr-2">
                    {staffList.map(staff => (
@@ -428,7 +428,6 @@ function App() {
                             <p className="text-sm font-bold text-white">{staff.name}</p>
                             <p className="text-xs text-gray-500 uppercase">{staff.role}</p>
                          </div>
-                         {/* Don't let user delete themselves */}
                          {staff._id !== user._id && (
                            <button onClick={() => handleDeleteUser(staff._id, staff.name)} className="text-red-500 hover:text-red-400 p-1">
                               <Trash2 size={16} />
@@ -438,7 +437,6 @@ function App() {
                    ))}
                 </div>
 
-                {/* 2. ADD NEW USER FORM */}
                 <h3 className="text-lg font-bold mb-3 text-white border-b border-gray-700 pb-2">Add New Staff</h3>
                 <form onSubmit={handleAddUser} className="space-y-4">
                    <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
@@ -452,16 +450,22 @@ function App() {
                       <option value="hod">HOD</option>
                       <option value="staff">Staff</option>
                    </select>
-
-                   <button disabled={loading} className="w-full bg-primary py-3 rounded font-bold hover:opacity-90 disabled:opacity-50 flex justify-center gap-2">
-                      {loading ? <Loader2 className="animate-spin" /> : "Create User"}
-                   </button>
+                   
+                   {/* ACTION BUTTONS (Create + Cancel) */}
+                   <div className="flex gap-2">
+                     <button disabled={loading} className="flex-1 bg-primary py-3 rounded font-bold hover:opacity-90 disabled:opacity-50 flex justify-center gap-2">
+                        {loading ? <Loader2 className="animate-spin" /> : "Create User"}
+                     </button>
+                     <button type="button" onClick={() => setShowAddUser(false)} className="px-6 py-3 bg-gray-700 rounded font-bold hover:bg-gray-600 transition">
+                        Cancel
+                     </button>
+                   </div>
                 </form>
              </div>
           </div>
         )}
 
-        {/* --- CREATE TASK FORM --- */}
+        {/* --- CREATE TASK FORM (With Cancel Button) --- */}
         {showCreate && (
           <div className="bg-card p-6 rounded-xl border border-gray-700 mb-8 animate-fade-in shadow-2xl">
             <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
@@ -498,9 +502,15 @@ function App() {
               <textarea placeholder="Description..." className="col-span-1 md:col-span-2 p-3 bg-dark border border-gray-700 rounded text-white h-24 focus:border-primary outline-none"
                 onChange={e => setNewTask({...newTask, description: e.target.value})}></textarea>
               
-              <button disabled={loading} className="col-span-1 md:col-span-2 bg-primary py-3 rounded font-bold flex justify-center items-center gap-2 hover:opacity-90 disabled:opacity-50">
-                 {loading ? <Loader2 className="animate-spin" /> : "Assign Task"}
-              </button>
+              {/* ACTION BUTTONS (Assign + Cancel) */}
+              <div className="col-span-1 md:col-span-2 flex gap-3 mt-2">
+                 <button disabled={loading} className="flex-1 bg-primary py-3 rounded font-bold flex justify-center items-center gap-2 hover:opacity-90 disabled:opacity-50">
+                    {loading ? <Loader2 className="animate-spin" /> : "Assign Task"}
+                 </button>
+                 <button type="button" onClick={() => setShowCreate(false)} className="px-6 py-3 bg-gray-700 rounded font-bold hover:bg-gray-600 transition">
+                    Cancel
+                 </button>
+              </div>
             </form>
           </div>
         )}
@@ -541,56 +551,4 @@ function App() {
         </div>
 
         {/* --- DESKTOP VIEW --- */}
-        <div className="hidden md:block bg-card rounded-lg border border-gray-800 overflow-hidden shadow-xl">
-          <table className="w-full text-left text-sm text-gray-400">
-            <thead className="bg-gray-900 text-gray-200 uppercase font-bold text-xs tracking-wider">
-               <tr>
-                  <th className="p-4 border-b border-gray-800">Task Name</th>
-                  <th className="p-4 border-b border-gray-800">Department</th>
-                  <th className="p-4 border-b border-gray-800">Assigned Staff</th>
-                  <th className="p-4 border-b border-gray-800">Progress</th>
-                  <th className="p-4 border-b border-gray-800">Date Created</th>
-                  <th className="p-4 border-b border-gray-800">Deadline</th>
-               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-               {getFilteredTasks().map((task) => {
-                  const progress = getProgress(task);
-                  const assignedName = task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0].name : "Unassigned";
-                  
-                  return (
-                    <tr key={task._id} onClick={() => openTask(task)} className="hover:bg-gray-800/50 cursor-pointer transition-colors group">
-                       <td className="p-4 text-white font-medium relative max-w-[200px]">
-                          <div className="truncate" title={task.title}>{task.title}</div>
-                          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent group-hover:from-gray-800 pointer-events-none"></div>
-                       </td>
-                       <td className="p-4"><span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs border border-gray-700">{task.department}</span></td>
-                       <td className="p-4 text-gray-300 flex items-center gap-2">
-                          <User size={14} className="text-gray-500"/>
-                          {assignedName}
-                       </td>
-                       <td className="p-4">
-                          <div className="flex items-center gap-2">
-                             <span className={`font-bold ${progress === 100 ? 'text-green-500' : 'text-primary'}`}>{progress}%</span>
-                             <div className="w-20 bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                                <div className={`h-full ${progress === 100 ? 'bg-green-500' : 'bg-primary'}`} style={{ width: `${progress}%` }}></div>
-                             </div>
-                          </div>
-                       </td>
-                       <td className="p-4">{new Date(task.createdAt || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
-                       <td className="p-4 text-gray-300">{task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-'}</td>
-                    </tr>
-                  );
-               })}
-               {getFilteredTasks().length === 0 && (
-                  <tr><td colSpan="6" className="p-8 text-center text-gray-500 italic">No tasks found matching your filters.</td></tr>
-               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default App;
+        <div className="hidden
