@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Plus, User, ArrowLeft, CheckSquare, Square, Loader2, 
-  Calendar, ChevronRight, Clock, Edit, Trash2, Save, X, UserPlus 
+  Calendar, ChevronRight, Clock, Edit, Trash2, Save, X, UserPlus,
+  BarChart2, PieChart, Activity
 } from 'lucide-react';
 
 // Live Backend Link
@@ -55,7 +56,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (view === 'dashboard') {
+    if (view === 'dashboard' || view === 'analytics') {
       fetchTasks();
       fetchStaff();
     }
@@ -80,6 +81,22 @@ function App() {
     if (progress === 100) return 'Completed';
     if (progress > 0) return 'In Progress';
     return 'Not Done';
+  };
+
+  // --- ANALYTICS CALCULATIONS ---
+  const getAnalytics = () => {
+    const total = tasks.length;
+    const completed = tasks.filter(t => getStatus(t) === 'Completed').length;
+    const inProgress = tasks.filter(t => getStatus(t) === 'In Progress').length;
+    const notStarted = tasks.filter(t => getStatus(t) === 'Not Done').length;
+    
+    // Calculate Department Breakdown
+    const depts = {};
+    tasks.forEach(t => {
+      depts[t.department] = (depts[t.department] || 0) + 1;
+    });
+
+    return { total, completed, inProgress, notStarted, depts };
   };
 
   const getFilteredTasks = () => {
@@ -123,7 +140,7 @@ function App() {
       alert('New User Added Successfully!');
       fetchStaff(); 
       setRegName(''); setRegEmail(''); setRegPassword(''); setRegRole('staff');
-      setShowAddUser(false); // Close modal on success
+      setShowAddUser(false);
     } catch (err) { alert('Failed to add user.'); } 
     finally { setLoading(false); }
   };
@@ -227,6 +244,95 @@ function App() {
     );
   }
 
+  // --- NEW: ANALYTICS VIEW ---
+  if (view === 'analytics') {
+    const stats = getAnalytics();
+    return (
+      <div className="min-h-screen bg-dark text-white font-sans pb-10">
+         <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
+            <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">CONCAVE ANALYTICS</h1>
+            <div className="flex gap-4 items-center">
+               <button onClick={() => setView('dashboard')} className="text-sm text-gray-300 hover:text-white flex items-center gap-1">
+                 <ArrowLeft size={16}/> Back to Dashboard
+               </button>
+            </div>
+         </nav>
+
+         <div className="p-4 md:p-8 max-w-7xl mx-auto">
+            {/* KPI CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+               <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
+                  <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">Total Tasks</h3>
+                  <p className="text-3xl font-bold text-white">{stats.total}</p>
+               </div>
+               <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
+                  <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">Completed</h3>
+                  <p className="text-3xl font-bold text-green-500">{stats.completed}</p>
+               </div>
+               <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
+                  <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">In Progress</h3>
+                  <p className="text-3xl font-bold text-blue-500">{stats.inProgress}</p>
+               </div>
+               <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
+                  <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">Success Rate</h3>
+                  <p className="text-3xl font-bold text-primary">
+                    {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
+                  </p>
+               </div>
+            </div>
+
+            {/* CHARTS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               
+               {/* Department Breakdown */}
+               <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
+                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                     <BarChart2 className="text-primary"/> Tasks by Department
+                  </h3>
+                  <div className="space-y-4">
+                     {Object.entries(stats.depts).map(([dept, count]) => (
+                        <div key={dept}>
+                           <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-300">{dept}</span>
+                              <span className="text-gray-500">{count}</span>
+                           </div>
+                           <div className="w-full bg-gray-900 h-2 rounded-full overflow-hidden">
+                              <div className="bg-primary h-full" style={{ width: `${(count / stats.total) * 100}%` }}></div>
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+
+               {/* Status Breakdown */}
+               <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
+                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+                     <PieChart className="text-primary"/> Task Status
+                  </h3>
+                  <div className="flex items-center justify-center h-48 gap-4">
+                     {/* Visual Bars for Status */}
+                     <div className="flex flex-col items-center gap-2">
+                        <div className="w-16 bg-green-500 rounded-t" style={{ height: `${stats.total ? (stats.completed/stats.total)*100 : 0}%`, minHeight: '10px' }}></div>
+                        <span className="text-xs text-gray-400">Done</span>
+                     </div>
+                     <div className="flex flex-col items-center gap-2">
+                        <div className="w-16 bg-blue-500 rounded-t" style={{ height: `${stats.total ? (stats.inProgress/stats.total)*100 : 0}%`, minHeight: '10px' }}></div>
+                        <span className="text-xs text-gray-400">Active</span>
+                     </div>
+                     <div className="flex flex-col items-center gap-2">
+                        <div className="w-16 bg-gray-600 rounded-t" style={{ height: `${stats.total ? (stats.notStarted/stats.total)*100 : 0}%`, minHeight: '10px' }}></div>
+                        <span className="text-xs text-gray-400">Pending</span>
+                     </div>
+                  </div>
+               </div>
+
+            </div>
+         </div>
+      </div>
+    );
+  }
+
+  // --- TASK DETAIL VIEW ---
   if (view === 'task-detail' && selectedTask) {
     const progress = getProgress(selectedTask);
     const assignedName = selectedTask.assignedTo && selectedTask.assignedTo.length > 0 
@@ -360,6 +466,13 @@ function App() {
           </div>
           
           <div className="flex gap-2 w-full md:w-auto">
+            {/* ANALYTICS BUTTON (Admin/Creator/HOD) */}
+            {['creator', 'admin', 'hod'].includes(user.role) && (
+               <button onClick={() => setView('analytics')} className="bg-gray-800 border border-gray-700 text-white px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-gray-700 transition w-full md:w-auto">
+                 <Activity size={18} /> Analytics
+               </button>
+            )}
+
             {user.role === 'creator' && (
                <button onClick={() => setShowAddUser(true)} className="bg-gray-800 border border-gray-700 text-white px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-gray-700 transition w-full md:w-auto">
                  <UserPlus size={18} /> Manage Staff
@@ -417,13 +530,11 @@ function App() {
         {showAddUser && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
              <div className="bg-card p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl relative my-8">
-                {/* 1. Header with X Button */}
                 <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
                    <h3 className="text-xl font-bold text-white">Manage Staff</h3>
                    <button onClick={() => setShowAddUser(false)} className="text-gray-500 hover:text-white"><X size={20}/></button>
                 </div>
 
-                {/* 2. Existing Staff List */}
                 <div className="max-h-40 overflow-y-auto space-y-2 mb-6 pr-2">
                    {staffList.map(staff => (
                       <div key={staff._id} className="flex justify-between items-center bg-dark p-2 rounded border border-gray-800">
@@ -440,7 +551,6 @@ function App() {
                    ))}
                 </div>
 
-                {/* 3. Add User Form */}
                 <h4 className="text-md font-bold mb-3 text-primary">Add New Staff</h4>
                 <form onSubmit={handleAddUser} className="space-y-4">
                    <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
@@ -455,7 +565,6 @@ function App() {
                       <option value="staff">Staff</option>
                    </select>
 
-                   {/* 4. Action Buttons (Create + Cancel) */}
                    <div className="flex gap-2">
                       <button disabled={loading} className="flex-1 bg-primary py-3 rounded font-bold hover:opacity-90 disabled:opacity-50 flex justify-center gap-2">
                          {loading ? <Loader2 className="animate-spin" /> : "Create User"}
