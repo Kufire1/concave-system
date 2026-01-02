@@ -49,6 +49,14 @@ app.get('/api/users', async (req, res) => {
   } catch (err) { res.status(500).send('Server Error'); }
 });
 
+// DELETE USER (NEW ROUTE)
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: 'User Deleted' });
+  } catch (err) { res.status(500).send('Server Error'); }
+});
+
 app.post('/api/register', async (req, res) => {
   try {
     const user = new User(req.body);
@@ -78,13 +86,11 @@ app.post('/api/tasks', async (req, res) => {
   res.json(populatedTask);
 });
 
-// --- UPDATED: EDIT TASK (Handles Text Updates AND Milestones) ---
+// EDIT TASK
 app.put('/api/tasks/:id', async (req, res) => {
   try {
-    // We now accept title, description, deadline, assignedTo, AND milestones
     const { title, description, department, deadline, assignedTo, milestones, status } = req.body;
     
-    // Auto-calculate progress ONLY if milestones are being updated
     let updateData = { title, description, department, deadline, assignedTo, status };
     
     if (milestones) {
@@ -95,8 +101,6 @@ app.put('/api/tasks/:id', async (req, res) => {
       } else {
         updateData.progress = 0;
       }
-
-      // Update status based on progress
       if (updateData.progress === 100) updateData.status = 'Completed';
       else if (updateData.progress > 0) updateData.status = 'In Progress';
     }
@@ -106,12 +110,11 @@ app.put('/api/tasks/:id', async (req, res) => {
       updateData, 
       { new: true }
     ).populate('assignedTo', 'name email');
-    
     res.json(updatedTask);
   } catch (err) { res.status(500).send('Server Error'); }
 });
 
-// --- NEW: DELETE TASK ROUTE ---
+// DELETE TASK
 app.delete('/api/tasks/:id', async (req, res) => {
   try {
     await Task.findByIdAndDelete(req.params.id);

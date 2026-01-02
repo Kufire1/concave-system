@@ -17,7 +17,7 @@ function App() {
   
   // Modals
   const [showCreate, setShowCreate] = useState(false);
-  const [showAddUser, setShowAddUser] = useState(false); // <--- NEW: Controls Add User Modal
+  const [showAddUser, setShowAddUser] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -31,7 +31,7 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Add User Inputs (Moved to Dashboard)
+  // Add User Inputs
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
@@ -115,19 +115,25 @@ function App() {
     finally { setLoading(false); }
   };
 
-  // --- NEW: HANDLE ADD USER (Internal) ---
   const handleAddUser = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       await axios.post('/register', { name: regName, email: regEmail, password: regPassword, role: regRole });
       alert('New User Added Successfully!');
-      setShowAddUser(false);
-      fetchStaff(); // Refresh the list so they appear in dropdowns immediately
-      // Reset form
+      fetchStaff(); 
       setRegName(''); setRegEmail(''); setRegPassword(''); setRegRole('staff');
-    } catch (err) { alert('Failed to add user. Email might be taken.'); } 
+    } catch (err) { alert('Failed to add user.'); } 
     finally { setLoading(false); }
+  };
+
+  // --- NEW: DELETE USER FUNCTION ---
+  const handleDeleteUser = async (id, name) => {
+    if(!window.confirm(`Are you sure you want to delete ${name}? They will lose access immediately.`)) return;
+    try {
+      await axios.delete(`/users/${id}`);
+      fetchStaff(); // Refresh list immediately
+    } catch (err) { alert('Failed to delete user'); }
   };
 
   const handleLogout = () => {
@@ -204,7 +210,6 @@ function App() {
     fetchTasks();
   };
 
-  // --- LOGIN PAGE (Clean - No Register Button) ---
   if (view === 'login') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
@@ -217,7 +222,6 @@ function App() {
               {loading ? <Loader2 className="animate-spin" /> : "Login"}
             </button>
           </form>
-          {/* Public Register Button Removed */}
         </div>
       </div>
     );
@@ -356,10 +360,9 @@ function App() {
           </div>
           
           <div className="flex gap-2 w-full md:w-auto">
-            {/* --- NEW: ADD USER BUTTON (Only for Creator) --- */}
             {user.role === 'creator' && (
                <button onClick={() => setShowAddUser(true)} className="bg-gray-800 border border-gray-700 text-white px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-gray-700 transition w-full md:w-auto">
-                 <UserPlus size={18} /> Add Staff
+                 <UserPlus size={18} /> Manage Staff
                </button>
             )}
 
@@ -410,12 +413,33 @@ function App() {
            </div>
         </div>
 
-        {/* --- NEW: ADD USER MODAL --- */}
+        {/* --- MANAGE STAFF MODAL --- */}
         {showAddUser && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-             <div className="bg-card p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl relative">
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+             <div className="bg-card p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl relative my-8">
                 <button onClick={() => setShowAddUser(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20}/></button>
-                <h3 className="text-xl font-bold mb-4 text-white">Add New Staff</h3>
+                
+                {/* 1. LIST EXISTING USERS */}
+                <h3 className="text-lg font-bold mb-3 text-white border-b border-gray-700 pb-2">Existing Staff</h3>
+                <div className="max-h-40 overflow-y-auto space-y-2 mb-6 pr-2">
+                   {staffList.map(staff => (
+                      <div key={staff._id} className="flex justify-between items-center bg-dark p-2 rounded border border-gray-800">
+                         <div>
+                            <p className="text-sm font-bold text-white">{staff.name}</p>
+                            <p className="text-xs text-gray-500 uppercase">{staff.role}</p>
+                         </div>
+                         {/* Don't let user delete themselves */}
+                         {staff._id !== user._id && (
+                           <button onClick={() => handleDeleteUser(staff._id, staff.name)} className="text-red-500 hover:text-red-400 p-1">
+                              <Trash2 size={16} />
+                           </button>
+                         )}
+                      </div>
+                   ))}
+                </div>
+
+                {/* 2. ADD NEW USER FORM */}
+                <h3 className="text-lg font-bold mb-3 text-white border-b border-gray-700 pb-2">Add New Staff</h3>
                 <form onSubmit={handleAddUser} className="space-y-4">
                    <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Full Name" value={regName} onChange={e => setRegName(e.target.value)} />
                    <input required className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none" placeholder="Email" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
