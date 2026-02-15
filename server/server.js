@@ -5,19 +5,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
-// -------------------------
-// TEMP DEBUG (REMOVE AFTER FIX)
-// -------------------------
-// This prints what Render is REALLY using (password masked), so we can stop guessing.
-if (process.env.MONGO_URI) {
-  const masked = process.env.MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, "//$1:****@");
-  console.log("MONGO_URI (masked):", masked);
-} else {
-  console.log("MONGO_URI is NOT set");
-}
-
-console.log("CORS_ORIGIN:", process.env.CORS_ORIGIN || "(empty)");
-
 const app = express();
 
 app.use(express.json());
@@ -468,7 +455,8 @@ app.put("/api/tasks/:id", auth, async (req, res) => {
 
     if (!canSeeTask(req.user, existing)) return res.status(403).json({ msg: "Forbidden" });
 
-    const { title, description, department, deadline, assignedTo, milestones, status } = req.body || {};
+    const { title, description, department, deadline, assignedTo, milestones, status } =
+      req.body || {};
 
     if (department && !DEPARTMENTS.includes(department)) {
       return res.status(400).json({ msg: "Invalid department" });
