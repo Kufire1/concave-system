@@ -62,13 +62,13 @@ function App() {
     }
   }, [view]);
 
-  const fetchTasks = () => {
-    axios.get('/tasks').then(res => setTasks(res.data));
-  };
+ const fetchTasks = () => {
+  axios.get('/api/tasks').then(res => setTasks(res.data));
+};
 
-  const fetchStaff = () => {
-    axios.get('/users').then(res => setStaffList(res.data));
-  };
+const fetchStaff = () => {
+  axios.get('/api/users').then(res => setStaffList(res.data));
+};
 
   const getProgress = (task) => {
     if (!task.milestones || task.milestones.length === 0) return 0;
