@@ -1,36 +1,31 @@
-import { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import {
-  Plus, User, ArrowLeft, CheckSquare, Square, Loader2,
-  Calendar, ChevronRight, Clock, Edit, Trash2, Save, X, UserPlus,
-  BarChart2, PieChart, Activity
-} from 'lucide-react';
+  Plus,
+  User,
+  ArrowLeft,
+  CheckSquare,
+  Square,
+  Loader2,
+  Calendar,
+  ChevronRight,
+  Clock,
+  Edit,
+  Trash2,
+  Save,
+  X,
+  UserPlus,
+  BarChart2,
+  PieChart,
+  Activity,
+} from "lucide-react";
 
 // -----------------------------
 // AXIOS CONFIG (LIVE BACKEND)
 // -----------------------------
 // baseURL already includes /api
-axios.defaults.baseURL = 'https://concave-system.onrender.com/api';
-axios.defaults.headers.common['Content-Type'] = 'application/json';
-
-// Auto-attach JWT token to every request
-axios.interceptors.request.use((config) => {
-  try {
-    const saved = localStorage.getItem('user');
-    if (!saved) return config;
-
-    const parsed = JSON.parse(saved);
-
-    // supports both shapes:
-    // 1) { token, user: {...} }
-    // 2) { token, role, name, ... }
-    const token = parsed?.token || parsed?.user?.token;
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-  } catch {
-    // ignore parse errors
-  }
-  return config;
-});
+axios.defaults.baseURL = "https://concave-system.onrender.com/api";
+axios.defaults.headers.common["Content-Type"] = "application/json";
 
 // -----------------------------
 // SESSION NORMALIZER
@@ -42,6 +37,27 @@ const normalizeSession = (session) => {
   if (session.token && session.user) return { token: session.token, ...session.user };
   return session; // already normalized
 };
+
+// Auto-attach JWT token to every request
+let interceptorAttached = false;
+if (!interceptorAttached) {
+  interceptorAttached = true;
+  axios.interceptors.request.use((config) => {
+    try {
+      const saved = localStorage.getItem("user");
+      if (!saved) return config;
+
+      const parsed = JSON.parse(saved);
+      const normalized = normalizeSession(parsed);
+      const token = normalized?.token;
+
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    } catch {
+      // ignore parse errors
+    }
+    return config;
+  });
+}
 
 // -----------------------------
 // PERMISSIONS (ROLE-BASED UI)
@@ -60,7 +76,7 @@ const PERMS = {
   },
   admin: {
     analytics: true,
-    manageUsers: true, // NOTE: backend currently only allows creator. UI true for future.
+    manageUsers: true, // NOTE: backend currently only allows creator to manage users
     createTask: true,
     editTask: true,
     deleteTask: true,
@@ -111,22 +127,46 @@ const PERMS = {
 };
 
 const normRole = (role) =>
-  String(role || '')
+  String(role || "")
     .trim()
     .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+    .replace(/[\s-]+/g, "_");
 
-const getRole = (u) => u?.role || u?.user?.role; // supports both shapes
+const getRole = (u) => u?.role || u?.user?.role;
 const can = (u, action) => !!PERMS[normRole(getRole(u))]?.[action];
 
+// -----------------------------
+// LIVE BUILD CHECK STICKER (TEMP)
+// Shows on ALL views so you can confirm deploy.
+// REMOVE LATER.
+// -----------------------------
+const BuildCheckSticker = () => (
+  <div
+    style={{
+      position: "fixed",
+      bottom: 10,
+      right: 10,
+      zIndex: 999999,
+      background: "red",
+      color: "white",
+      padding: "8px 10px",
+      borderRadius: 8,
+      fontWeight: 800,
+      boxShadow: "0 8px 25px rgba(0,0,0,0.35)",
+    }}
+  >
+    LIVE BUILD CHECK ✅ v9
+  </div>
+);
+
 function App() {
-  const [view, setView] = useState('login');
+  const [view, setView] = useState("login");
   const [user, setUser] = useState(null);
 
   // Always get freshest session from localStorage (so UI never lies)
   const sessionRaw = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
+      return JSON.parse(localStorage.getItem("user") || "null");
     } catch {
       return null;
     }
@@ -147,30 +187,30 @@ function App() {
   const [isEditing, setIsEditing] = useState(false);
 
   // Filters
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [filterDept, setFilterDept] = useState('All');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterDept, setFilterDept] = useState("All");
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
 
   // Login Inputs
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   // Add User Inputs
-  const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regRole, setRegRole] = useState('staff');
-  const [regDept, setRegDept] = useState('Management');
+  const [regName, setRegName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regRole, setRegRole] = useState("staff");
+  const [regDept, setRegDept] = useState("Management");
 
   // New Task Inputs
   const [newTask, setNewTask] = useState({
-    title: '',
-    department: 'Management',
-    description: '',
-    deadline: '',
-    assignedTo: []
+    title: "",
+    department: "Management",
+    description: "",
+    deadline: "",
+    assignedTo: [],
   });
-  const [newMilestone, setNewMilestone] = useState('');
+  const [newMilestone, setNewMilestone] = useState("");
 
   // Edit Data
   const [editData, setEditData] = useState({});
@@ -179,15 +219,15 @@ function App() {
   // LOAD SESSION ON PAGE LOAD
   // -----------------------------
   useEffect(() => {
-    const saved = localStorage.getItem('user');
+    const saved = localStorage.getItem("user");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         const normalized = normalizeSession(parsed);
         setUser(normalized);
-        setView('dashboard');
+        setView("dashboard");
       } catch {
-        localStorage.removeItem('user');
+        localStorage.removeItem("user");
       }
     }
   }, []);
@@ -197,25 +237,25 @@ function App() {
   // -----------------------------
   const getProgress = (task) => {
     if (!task?.milestones || task.milestones.length === 0) return 0;
-    const completed = task.milestones.filter(m => m.status === 'Done').length;
+    const completed = task.milestones.filter((m) => m.status === "Done").length;
     return Math.round((completed / task.milestones.length) * 100);
   };
 
   const getStatus = (task) => {
     const progress = getProgress(task);
-    if (progress === 100) return 'Completed';
-    if (progress > 0) return 'In Progress';
-    return 'Not Done';
+    if (progress === 100) return "Completed";
+    if (progress > 0) return "In Progress";
+    return "Not Done";
   };
 
   const filteredTasks = useMemo(() => {
-    return (tasks || []).filter(task => {
-      if (filterDept !== 'All' && task.department !== filterDept) return false;
+    return (tasks || []).filter((task) => {
+      if (filterDept !== "All" && task.department !== filterDept) return false;
 
       const status = getStatus(task);
-      if (filterStatus === 'Completed' && status !== 'Completed') return false;
-      if (filterStatus === 'Started' && status !== 'In Progress') return false;
-      if (filterStatus === 'Not Done' && status !== 'Not Done') return false;
+      if (filterStatus === "Completed" && status !== "Completed") return false;
+      if (filterStatus === "Started" && status !== "In Progress") return false;
+      if (filterStatus === "Not Done" && status !== "Not Done") return false;
 
       if (dateRange.start) {
         const taskDate = new Date(task.createdAt);
@@ -236,32 +276,32 @@ function App() {
   // -----------------------------
   const fetchTasks = async () => {
     try {
-      const res = await axios.get('/tasks');
+      const res = await axios.get("/tasks");
       setTasks(res.data || []);
     } catch (err) {
       console.error(err);
       if (err?.response?.status === 401) handleLogout();
-      else alert(err?.response?.data?.msg || 'Failed to load tasks.');
+      else alert(err?.response?.data?.msg || "Failed to load tasks.");
     }
   };
 
   const fetchStaff = async () => {
     try {
-      const res = await axios.get('/users');
+      const res = await axios.get("/users");
       setStaffList(res.data || []);
     } catch (err) {
       console.error(err);
-      // Non-creator will get Forbidden — that's normal
-      if (can(uiUser, 'manageUsers')) {
-        alert(err?.response?.data?.msg || 'Failed to load users list.');
+      // Non-creator will get Forbidden — normal
+      if (can(uiUser, "manageUsers")) {
+        alert(err?.response?.data?.msg || "Failed to load users list.");
       }
     }
   };
 
   useEffect(() => {
-    if (view === 'dashboard' || view === 'analytics') {
+    if (view === "dashboard" || view === "analytics") {
       fetchTasks();
-      if (can(uiUser, 'assignTask') || can(uiUser, 'manageUsers')) fetchStaff();
+      if (can(uiUser, "assignTask") || can(uiUser, "manageUsers")) fetchStaff();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
@@ -273,23 +313,23 @@ function App() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post('/login', { email, password });
+      const res = await axios.post("/login", { email, password });
       const normalized = normalizeSession(res.data);
 
-      localStorage.setItem('user', JSON.stringify(normalized));
+      localStorage.setItem("user", JSON.stringify(normalized));
       setUser(normalized);
-      setView('dashboard');
+      setView("dashboard");
     } catch (err) {
       console.error(err);
-      alert(err?.response?.data?.msg || 'Login Failed.');
+      alert(err?.response?.data?.msg || "Login Failed.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    setView('login');
+    localStorage.removeItem("user");
+    setView("login");
     setUser(null);
     setTasks([]);
     setStaffList([]);
@@ -303,11 +343,12 @@ function App() {
   // -----------------------------
   const handleAddUser = async (e) => {
     e.preventDefault();
-    if (!can(uiUser, 'manageUsers')) return alert("You don't have permission to manage users.");
+    if (!can(uiUser, "manageUsers"))
+      return alert("You don't have permission to manage users.");
 
     setLoading(true);
     try {
-      await axios.post('/register', {
+      await axios.post("/register", {
         name: regName,
         email: regEmail,
         password: regPassword,
@@ -315,33 +356,34 @@ function App() {
         department: regDept,
       });
 
-      alert('New User Added Successfully!');
+      alert("New User Added Successfully!");
       await fetchStaff();
 
-      setRegName('');
-      setRegEmail('');
-      setRegPassword('');
-      setRegRole('staff');
-      setRegDept('Management');
+      setRegName("");
+      setRegEmail("");
+      setRegPassword("");
+      setRegRole("staff");
+      setRegDept("Management");
       setShowAddUser(false);
     } catch (err) {
       console.error(err);
-      alert(err?.response?.data?.msg || 'Failed to add user.');
+      alert(err?.response?.data?.msg || "Failed to add user.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteUser = async (id, name) => {
-    if (!can(uiUser, 'manageUsers')) return alert("You don't have permission to manage users.");
-    if (!window.confirm(`Are you sure you want to delete ${name}? They will lose access immediately.`)) return;
+    if (!can(uiUser, "manageUsers"))
+      return alert("You don't have permission to manage users.");
+    if (!window.confirm(`Delete ${name}? They lose access immediately.`)) return;
 
     try {
       await axios.delete(`/users/${id}`);
       await fetchStaff();
     } catch (err) {
       console.error(err);
-      alert(err?.response?.data?.msg || 'Failed to delete user');
+      alert(err?.response?.data?.msg || "Failed to delete user");
     }
   };
 
@@ -350,23 +392,24 @@ function App() {
   // -----------------------------
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    if (!can(uiUser, 'createTask')) return alert("You don't have permission to create tasks.");
+    if (!can(uiUser, "createTask"))
+      return alert("You don't have permission to create tasks.");
 
     setLoading(true);
     try {
-      await axios.post('/tasks', newTask);
+      await axios.post("/tasks", newTask);
       setShowCreate(false);
       setNewTask({
-        title: '',
-        department: 'Management',
-        description: '',
-        deadline: '',
-        assignedTo: []
+        title: "",
+        department: "Management",
+        description: "",
+        deadline: "",
+        assignedTo: [],
       });
       await fetchTasks();
     } catch (err) {
       console.error(err);
-      alert(err?.response?.data?.msg || 'Error creating task');
+      alert(err?.response?.data?.msg || "Error creating task");
     } finally {
       setLoading(false);
     }
@@ -375,27 +418,28 @@ function App() {
   const openTask = (task) => {
     setSelectedTask({ ...task, progress: getProgress(task) });
     setEditData({
-      title: task.title || '',
-      description: task.description || '',
-      department: task.department || 'Management',
-      deadline: task.deadline ? task.deadline.split('T')[0] : '',
+      title: task.title || "",
+      description: task.description || "",
+      department: task.department || "Management",
+      deadline: task.deadline ? task.deadline.split("T")[0] : "",
       assignedTo:
         task.assignedTo && task.assignedTo.length > 0
-          ? (task.assignedTo[0]?._id || task.assignedTo[0])
-          : ''
+          ? task.assignedTo[0]?._id || task.assignedTo[0]
+          : "",
     });
     setIsEditing(false);
-    setView('task-detail');
+    setView("task-detail");
   };
 
   const handleDeleteTask = async () => {
-    if (!can(uiUser, 'deleteTask')) return alert("You don't have permission to delete tasks.");
-    if (!window.confirm("Are you sure you want to delete this task? This cannot be undone.")) return;
+    if (!can(uiUser, "deleteTask"))
+      return alert("You don't have permission to delete tasks.");
+    if (!window.confirm("Delete this task? This cannot be undone.")) return;
 
     try {
       await axios.delete(`/tasks/${selectedTask._id}`);
       await fetchTasks();
-      setView('dashboard');
+      setView("dashboard");
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.msg || "Failed to delete task");
@@ -403,7 +447,8 @@ function App() {
   };
 
   const handleSaveEdit = async () => {
-    if (!can(uiUser, 'editTask')) return alert("You don't have permission to edit tasks.");
+    if (!can(uiUser, "editTask"))
+      return alert("You don't have permission to edit tasks.");
 
     try {
       setLoading(true);
@@ -414,7 +459,7 @@ function App() {
         department: editData.department,
         deadline: editData.deadline,
         assignedTo: editData.assignedTo ? [editData.assignedTo] : [],
-        status: selectedTask.status
+        status: selectedTask.status,
       };
 
       const res = await axios.put(`/tasks/${selectedTask._id}`, payload);
@@ -430,14 +475,18 @@ function App() {
   };
 
   const addMilestone = async () => {
-    if (!can(uiUser, 'addMilestone')) return alert("You don't have permission to add milestones.");
+    if (!can(uiUser, "addMilestone"))
+      return alert("You don't have permission to add milestones.");
     if (!newMilestone.trim()) return;
 
     const current = selectedTask?.milestones || [];
-    const updatedMilestones = [...current, { title: newMilestone.trim(), status: 'Not Done' }];
+    const updatedMilestones = [
+      ...current,
+      { title: newMilestone.trim(), status: "Not Done" },
+    ];
 
     setSelectedTask({ ...selectedTask, milestones: updatedMilestones });
-    setNewMilestone('');
+    setNewMilestone("");
 
     try {
       await axios.put(`/tasks/${selectedTask._id}`, { milestones: updatedMilestones });
@@ -449,13 +498,13 @@ function App() {
   };
 
   const toggleMilestone = async (index) => {
-    if (!can(uiUser, 'toggleMilestone')) return;
+    if (!can(uiUser, "toggleMilestone")) return;
 
     const updatedMilestones = [...(selectedTask.milestones || [])];
     if (!updatedMilestones[index]) return;
 
     updatedMilestones[index].status =
-      updatedMilestones[index].status === 'Done' ? 'Not Done' : 'Done';
+      updatedMilestones[index].status === "Done" ? "Not Done" : "Done";
 
     setSelectedTask({ ...selectedTask, milestones: updatedMilestones });
 
@@ -473,13 +522,13 @@ function App() {
   // -----------------------------
   const getAnalytics = () => {
     const total = tasks.length;
-    const completed = tasks.filter(t => getStatus(t) === 'Completed').length;
-    const inProgress = tasks.filter(t => getStatus(t) === 'In Progress').length;
-    const notStarted = tasks.filter(t => getStatus(t) === 'Not Done').length;
+    const completed = tasks.filter((t) => getStatus(t) === "Completed").length;
+    const inProgress = tasks.filter((t) => getStatus(t) === "In Progress").length;
+    const notStarted = tasks.filter((t) => getStatus(t) === "Not Done").length;
 
     const depts = {};
-    tasks.forEach(t => {
-      const dept = t.department || 'Unknown';
+    tasks.forEach((t) => {
+      const dept = t.department || "Unknown";
       depts[dept] = (depts[dept] || 0) + 1;
     });
 
@@ -489,24 +538,27 @@ function App() {
   // -----------------------------
   // VIEWS
   // -----------------------------
-  if (view === 'login') {
+  if (view === "login") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
+        <BuildCheckSticker />
         <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800 m-4">
-          <h1 className="text-2xl font-bold text-primary mb-6 text-center">THE CONCAVE</h1>
+          <h1 className="text-2xl font-bold text-primary mb-6 text-center">
+            THE CONCAVE
+          </h1>
           <form onSubmit={handleLogin} className="space-y-4">
             <input
               className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none"
               placeholder="Email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
             <input
               type="password"
               className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none"
               placeholder="Password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
             />
             <button
               disabled={loading}
@@ -521,13 +573,14 @@ function App() {
   }
 
   // --- ANALYTICS VIEW ---
-  if (view === 'analytics') {
-    if (!can(uiUser, 'analytics')) {
+  if (view === "analytics") {
+    if (!can(uiUser, "analytics")) {
       return (
         <div className="min-h-screen bg-dark text-white p-10">
+          <BuildCheckSticker />
           <p className="text-gray-300 mb-4">You don’t have access to Analytics.</p>
           <button
-            onClick={() => setView('dashboard')}
+            onClick={() => setView("dashboard")}
             className="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded hover:bg-gray-700"
           >
             Back to Dashboard
@@ -539,26 +592,15 @@ function App() {
     const stats = getAnalytics();
 
     return (
-      // --- DASHBOARD ---
-return (
-  <div className="min-h-screen bg-dark text-white font-sans pb-10">
-    <div style={{
-      position: 'fixed',
-      bottom: 10,
-      right: 10,
-      zIndex: 999999,
-      background: 'red',
-      color: 'white',
-      padding: '8px 10px',
-      borderRadius: 8,
-      fontWeight: 800
-    }}>
-      LIVE BUILD CHECK ✅ v7
-    </div>
+      <div className="min-h-screen bg-dark text-white font-sans pb-10">
+        <BuildCheckSticker />
+
         <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
-          <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">CONCAVE ANALYTICS</h1>
+          <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">
+            CONCAVE ANALYTICS
+          </h1>
           <button
-            onClick={() => setView('dashboard')}
+            onClick={() => setView("dashboard")}
             className="text-sm text-gray-300 hover:text-white flex items-center gap-1"
           >
             <ArrowLeft size={16} /> Back to Dashboard
@@ -568,19 +610,27 @@ return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
-              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">Total Tasks</h3>
+              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">
+                Total Tasks
+              </h3>
               <p className="text-3xl font-bold text-white">{stats.total}</p>
             </div>
             <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
-              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">Completed</h3>
+              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">
+                Completed
+              </h3>
               <p className="text-3xl font-bold text-green-500">{stats.completed}</p>
             </div>
             <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
-              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">In Progress</h3>
+              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">
+                In Progress
+              </h3>
               <p className="text-3xl font-bold text-blue-500">{stats.inProgress}</p>
             </div>
             <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
-              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">Success Rate</h3>
+              <h3 className="text-gray-500 text-xs uppercase font-bold mb-1">
+                Success Rate
+              </h3>
               <p className="text-3xl font-bold text-primary">
                 {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
               </p>
@@ -602,7 +652,9 @@ return (
                     <div className="w-full bg-gray-900 h-2 rounded-full overflow-hidden">
                       <div
                         className="bg-primary h-full"
-                        style={{ width: `${stats.total ? (count / stats.total) * 100 : 0}%` }}
+                        style={{
+                          width: `${stats.total ? (count / stats.total) * 100 : 0}%`,
+                        }}
                       />
                     </div>
                   </div>
@@ -621,27 +673,35 @@ return (
                 <div className="flex flex-col items-center gap-2">
                   <div
                     className="w-16 bg-green-500 rounded-t"
-                    style={{ height: `${stats.total ? (stats.completed / stats.total) * 100 : 0}%`, minHeight: '10px' }}
+                    style={{
+                      height: `${stats.total ? (stats.completed / stats.total) * 100 : 0}%`,
+                      minHeight: "10px",
+                    }}
                   />
                   <span className="text-xs text-gray-400">Done</span>
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div
                     className="w-16 bg-blue-500 rounded-t"
-                    style={{ height: `${stats.total ? (stats.inProgress / stats.total) * 100 : 0}%`, minHeight: '10px' }}
+                    style={{
+                      height: `${stats.total ? (stats.inProgress / stats.total) * 100 : 0}%`,
+                      minHeight: "10px",
+                    }}
                   />
                   <span className="text-xs text-gray-400">Active</span>
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div
                     className="w-16 bg-gray-600 rounded-t"
-                    style={{ height: `${stats.total ? (stats.notStarted / stats.total) * 100 : 0}%`, minHeight: '10px' }}
+                    style={{
+                      height: `${stats.total ? (stats.notStarted / stats.total) * 100 : 0}%`,
+                      minHeight: "10px",
+                    }}
                   />
                   <span className="text-xs text-gray-400">Pending</span>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>
@@ -649,24 +709,26 @@ return (
   }
 
   // --- TASK DETAIL VIEW ---
-  if (view === 'task-detail' && selectedTask) {
+  if (view === "task-detail" && selectedTask) {
     const progress = getProgress(selectedTask);
     const assignedName =
       selectedTask.assignedTo && selectedTask.assignedTo.length > 0
-        ? (selectedTask.assignedTo[0]?.name || 'Assigned')
-        : 'Unassigned';
+        ? selectedTask.assignedTo[0]?.name || "Assigned"
+        : "Unassigned";
 
-    const canEditTask = can(uiUser, 'editTask');
-    const canDeleteTask = can(uiUser, 'deleteTask');
-    const canAssign = can(uiUser, 'assignTask');
-    const canAddMs = can(uiUser, 'addMilestone');
-    const canToggleMs = can(uiUser, 'toggleMilestone');
+    const canEditTask = can(uiUser, "editTask");
+    const canDeleteTask = can(uiUser, "deleteTask");
+    const canAssign = can(uiUser, "assignTask");
+    const canAddMs = can(uiUser, "addMilestone");
+    const canToggleMs = can(uiUser, "toggleMilestone");
 
     return (
       <div className="min-h-screen bg-dark text-white p-4 md:p-8">
+        <BuildCheckSticker />
+
         <div className="flex justify-between items-center mb-6">
           <button
-            onClick={() => setView('dashboard')}
+            onClick={() => setView("dashboard")}
             className="flex items-center gap-2 text-gray-400 hover:text-white"
           >
             <ArrowLeft size={20} /> Back to Dashboard
@@ -720,7 +782,9 @@ return (
                   <select
                     className="p-2 bg-dark border border-gray-700 rounded text-white text-sm w-full"
                     value={editData.department}
-                    onChange={e => setEditData({ ...editData, department: e.target.value })}
+                    onChange={(e) =>
+                      setEditData({ ...editData, department: e.target.value })
+                    }
                   >
                     <option>Management</option>
                     <option>Finance</option>
@@ -731,7 +795,7 @@ return (
                   <input
                     className="text-2xl font-bold bg-dark border border-gray-700 rounded p-2 w-full text-white"
                     value={editData.title}
-                    onChange={e => setEditData({ ...editData, title: e.target.value })}
+                    onChange={(e) => setEditData({ ...editData, title: e.target.value })}
                   />
                 </div>
               ) : (
@@ -739,7 +803,9 @@ return (
                   <span className="text-primary font-bold uppercase tracking-wider text-sm">
                     {selectedTask.department}
                   </span>
-                  <h1 className="text-2xl md:text-3xl font-bold mt-2">{selectedTask.title}</h1>
+                  <h1 className="text-2xl md:text-3xl font-bold mt-2">
+                    {selectedTask.title}
+                  </h1>
                 </>
               )}
 
@@ -751,13 +817,15 @@ return (
                       type="date"
                       className="bg-dark border border-gray-700 p-1 rounded text-white"
                       value={editData.deadline}
-                      onChange={e => setEditData({ ...editData, deadline: e.target.value })}
+                      onChange={(e) =>
+                        setEditData({ ...editData, deadline: e.target.value })
+                      }
                     />
                   ) : (
                     `Deadline: ${
                       selectedTask.deadline
                         ? new Date(selectedTask.deadline).toLocaleDateString()
-                        : 'No Deadline'
+                        : "No Deadline"
                     }`
                   )}
                 </div>
@@ -769,24 +837,31 @@ return (
                       disabled={!canAssign}
                       className="bg-dark border border-gray-700 p-1 rounded text-white w-full md:w-64 disabled:opacity-50"
                       value={editData.assignedTo}
-                      onChange={e => setEditData({ ...editData, assignedTo: e.target.value })}
+                      onChange={(e) =>
+                        setEditData({ ...editData, assignedTo: e.target.value })
+                      }
                     >
                       <option value="">Unassigned</option>
-                      {(staffList || []).map(staff => (
+                      {(staffList || []).map((staff) => (
                         <option key={staff._id} value={staff._id}>
                           {staff.name} ({staff.role})
                         </option>
                       ))}
                     </select>
                   ) : (
-                    <>Assigned to: <span className="text-white font-bold">{assignedName}</span></>
+                    <>
+                      Assigned to:{" "}
+                      <span className="text-white font-bold">{assignedName}</span>
+                    </>
                   )}
                 </div>
               </div>
             </div>
 
             <div className="text-left md:text-right w-full md:w-auto bg-gray-900 md:bg-transparent p-4 md:p-0 rounded-lg shrink-0">
-              <span className="block text-3xl md:text-4xl font-bold text-primary">{progress}%</span>
+              <span className="block text-3xl md:text-4xl font-bold text-primary">
+                {progress}%
+              </span>
               <span className="text-sm text-gray-500">Completed</span>
             </div>
           </div>
@@ -795,7 +870,9 @@ return (
             <textarea
               className="w-full h-32 p-3 bg-dark border border-gray-700 rounded text-white mb-8"
               value={editData.description}
-              onChange={e => setEditData({ ...editData, description: e.target.value })}
+              onChange={(e) =>
+                setEditData({ ...editData, description: e.target.value })
+              }
             />
           ) : (
             <p className="text-gray-300 mb-8 p-4 bg-dark rounded border border-gray-700 whitespace-pre-wrap">
@@ -807,18 +884,21 @@ return (
           <div className="space-y-3 mb-8">
             {selectedTask.milestones?.map((ms, index) => (
               <div
-                key={index}
+                key={`${ms._id || ms.title}-${index}`}
                 onClick={() => !isEditing && canToggleMs && toggleMilestone(index)}
                 className={[
                   "flex items-center gap-4 p-4 rounded bg-dark border border-gray-800 transition-all",
-                  !isEditing && canToggleMs ? "hover:border-primary cursor-pointer" : "opacity-60 cursor-not-allowed"
+                  !isEditing && canToggleMs
+                    ? "hover:border-primary cursor-pointer"
+                    : "opacity-60 cursor-not-allowed",
                 ].join(" ")}
               >
-                {ms.status === 'Done'
-                  ? <CheckSquare className="text-green-500 shrink-0" />
-                  : <Square className="text-gray-500 shrink-0" />
-                }
-                <span className={ms.status === 'Done' ? "text-gray-500 line-through" : "text-white"}>
+                {ms.status === "Done" ? (
+                  <CheckSquare className="text-green-500 shrink-0" />
+                ) : (
+                  <Square className="text-gray-500 shrink-0" />
+                )}
+                <span className={ms.status === "Done" ? "text-gray-500 line-through" : "text-white"}>
                   {ms.title}
                 </span>
               </div>
@@ -834,9 +914,12 @@ return (
                 className="flex-1 p-3 bg-dark border border-gray-700 rounded text-white"
                 placeholder="Add milestone..."
                 value={newMilestone}
-                onChange={e => setNewMilestone(e.target.value)}
+                onChange={(e) => setNewMilestone(e.target.value)}
               />
-              <button onClick={addMilestone} className="bg-primary px-6 rounded font-bold hover:opacity-90">
+              <button
+                onClick={addMilestone}
+                className="bg-primary px-6 rounded font-bold hover:opacity-90"
+              >
                 Add
               </button>
             </div>
@@ -853,10 +936,15 @@ return (
   }
 
   // --- DASHBOARD ---
+  // (single return only — no duplicates anywhere)
   return (
     <div className="min-h-screen bg-dark text-white font-sans pb-10">
+      <BuildCheckSticker />
+
       <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
-        <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">CONCAVE</h1>
+        <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">
+          CONCAVE
+        </h1>
         <div className="flex gap-4 items-center">
           <div className="hidden md:flex items-center gap-2 text-sm text-gray-300">
             <User size={16} />
@@ -878,16 +966,16 @@ return (
           </div>
 
           <div className="flex gap-2 w-full md:w-auto">
-            {can(uiUser, 'analytics') && (
+            {can(uiUser, "analytics") && (
               <button
-                onClick={() => setView('analytics')}
+                onClick={() => setView("analytics")}
                 className="bg-gray-800 border border-gray-700 text-white px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-gray-700 transition w-full md:w-auto"
               >
                 <Activity size={18} /> Analytics
               </button>
             )}
 
-            {can(uiUser, 'manageUsers') && (
+            {can(uiUser, "manageUsers") && (
               <button
                 onClick={() => setShowAddUser(true)}
                 className="bg-gray-800 border border-gray-700 text-white px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-gray-700 transition w-full md:w-auto"
@@ -896,9 +984,9 @@ return (
               </button>
             )}
 
-            {can(uiUser, 'createTask') && (
+            {can(uiUser, "createTask") && (
               <button
-                onClick={() => setShowCreate(!showCreate)}
+                onClick={() => setShowCreate(true)}
                 className="bg-primary px-4 py-3 md:py-2 rounded flex justify-center items-center gap-2 font-bold hover:bg-purple-600 transition w-full md:w-auto shadow-lg shadow-purple-900/20"
               >
                 <Plus size={18} /> New Task
@@ -914,7 +1002,7 @@ return (
             <select
               className="bg-dark border border-gray-700 text-white p-2 rounded text-sm w-full md:w-48"
               value={filterDept}
-              onChange={e => setFilterDept(e.target.value)}
+              onChange={(e) => setFilterDept(e.target.value)}
             >
               <option value="All">All Departments</option>
               <option value="Management">Management</option>
@@ -929,7 +1017,7 @@ return (
             <select
               className="bg-dark border border-gray-700 text-white p-2 rounded text-sm w-full md:w-40"
               value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value)}
+              onChange={(e) => setFilterStatus(e.target.value)}
             >
               <option value="All">All Status</option>
               <option value="Not Done">Not Done</option>
@@ -945,39 +1033,44 @@ return (
                 type="date"
                 className="bg-dark border border-gray-700 text-gray-400 p-2 rounded text-sm w-full"
                 value={dateRange.start}
-                onChange={e => setDateRange({ ...dateRange, start: e.target.value })}
+                onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
               />
               <span className="text-gray-600">-</span>
               <input
                 type="date"
                 className="bg-dark border border-gray-700 text-gray-400 p-2 rounded text-sm w-full"
                 value={dateRange.end}
-                onChange={e => setDateRange({ ...dateRange, end: e.target.value })}
+                onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
               />
             </div>
           </div>
         </div>
 
         {/* MANAGE USERS MODAL */}
-        {showAddUser && can(uiUser, 'manageUsers') && (
+        {showAddUser && can(uiUser, "manageUsers") && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl relative my-8">
               <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
                 <h3 className="text-xl font-bold text-white">Manage Users</h3>
-                <button onClick={() => setShowAddUser(false)} className="text-gray-500 hover:text-white">
+                <button
+                  onClick={() => setShowAddUser(false)}
+                  className="text-gray-500 hover:text-white"
+                >
                   <X size={20} />
                 </button>
               </div>
 
               <div className="max-h-40 overflow-y-auto space-y-2 mb-6 pr-2">
-                {staffList.map(staff => (
+                {(staffList || []).map((staff) => (
                   <div
                     key={staff._id}
                     className="flex justify-between items-center bg-dark p-2 rounded border border-gray-800"
                   >
                     <div>
                       <p className="text-sm font-bold text-white">{staff.name}</p>
-                      <p className="text-xs text-gray-500 uppercase">{staff.role} • {staff.department}</p>
+                      <p className="text-xs text-gray-500 uppercase">
+                        {staff.role} • {staff.department}
+                      </p>
                     </div>
 
                     {staff._id !== uiUser?._id && (
@@ -999,14 +1092,14 @@ return (
                   className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none"
                   placeholder="Full Name"
                   value={regName}
-                  onChange={e => setRegName(e.target.value)}
+                  onChange={(e) => setRegName(e.target.value)}
                 />
                 <input
                   required
                   className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none"
                   placeholder="Email"
                   value={regEmail}
-                  onChange={e => setRegEmail(e.target.value)}
+                  onChange={(e) => setRegEmail(e.target.value)}
                 />
                 <input
                   required
@@ -1014,14 +1107,14 @@ return (
                   className="w-full p-3 bg-dark border border-gray-700 rounded focus:border-primary outline-none"
                   placeholder="Password"
                   value={regPassword}
-                  onChange={e => setRegPassword(e.target.value)}
+                  onChange={(e) => setRegPassword(e.target.value)}
                 />
 
                 <label className="block text-sm text-gray-400 pl-1">Role</label>
                 <select
                   className="w-full p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                   value={regRole}
-                  onChange={e => setRegRole(e.target.value)}
+                  onChange={(e) => setRegRole(e.target.value)}
                 >
                   <option value="creator">Creator</option>
                   <option value="admin">Admin</option>
@@ -1035,7 +1128,7 @@ return (
                 <select
                   className="w-full p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                   value={regDept}
-                  onChange={e => setRegDept(e.target.value)}
+                  onChange={(e) => setRegDept(e.target.value)}
                 >
                   <option value="Management">Management</option>
                   <option value="Finance">Finance</option>
@@ -1064,11 +1157,14 @@ return (
         )}
 
         {/* CREATE TASK FORM */}
-        {showCreate && can(uiUser, 'createTask') && (
+        {showCreate && can(uiUser, "createTask") && (
           <div className="bg-card p-6 rounded-xl border border-gray-700 mb-8 animate-fade-in shadow-2xl">
             <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
               <h3 className="text-xl font-bold text-white">Assign New Task</h3>
-              <button onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-white">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="text-gray-500 hover:text-white"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -1079,13 +1175,13 @@ return (
                 placeholder="Task Title"
                 className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                 value={newTask.title}
-                onChange={e => setNewTask({ ...newTask, title: e.target.value })}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               />
 
               <select
                 className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                 value={newTask.department}
-                onChange={e => setNewTask({ ...newTask, department: e.target.value })}
+                onChange={(e) => setNewTask({ ...newTask, department: e.target.value })}
               >
                 <option>Management</option>
                 <option>Finance</option>
@@ -1095,11 +1191,13 @@ return (
 
               <select
                 className="p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
-                value={(newTask.assignedTo && newTask.assignedTo[0]) || ''}
-                onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value ? [e.target.value] : [] })}
+                value={(newTask.assignedTo && newTask.assignedTo[0]) || ""}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, assignedTo: e.target.value ? [e.target.value] : [] })
+                }
               >
                 <option value="">Assign to Staff (Optional)</option>
-                {staffList.map(staff => (
+                {(staffList || []).map((staff) => (
                   <option key={staff._id} value={staff._id}>
                     {staff.name} ({staff.role})
                   </option>
@@ -1111,7 +1209,7 @@ return (
                   type="date"
                   className="w-full p-3 bg-dark border border-gray-700 rounded text-white focus:border-primary outline-none"
                   value={newTask.deadline}
-                  onChange={e => setNewTask({ ...newTask, deadline: e.target.value })}
+                  onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
                 />
               </div>
 
@@ -1119,7 +1217,7 @@ return (
                 placeholder="Description..."
                 className="col-span-1 md:col-span-2 p-3 bg-dark border border-gray-700 rounded text-white h-24 focus:border-primary outline-none"
                 value={newTask.description}
-                onChange={e => setNewTask({ ...newTask, description: e.target.value })}
+                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
               />
 
               <div className="col-span-1 md:col-span-2 flex gap-3 mt-2">
@@ -1144,9 +1242,10 @@ return (
 
         {/* MOBILE VIEW */}
         <div className="md:hidden space-y-4">
-          {filteredTasks.map(task => {
+          {filteredTasks.map((task) => {
             const progress = getProgress(task);
-            const assignedName = task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0]?.name : "Unassigned";
+            const assignedName =
+              task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0]?.name : "Unassigned";
             return (
               <div
                 key={task._id}
@@ -1157,8 +1256,14 @@ return (
                   <span className="text-xs font-bold text-primary uppercase bg-purple-900/20 px-2 py-1 rounded">
                     {task.department}
                   </span>
-                  <span className={`text-xs px-2 py-1 rounded font-bold ${progress === 100 ? 'bg-green-900/30 text-green-400' : 'bg-gray-800 text-gray-400'}`}>
-                    {progress === 100 ? 'Done' : `${progress}%`}
+                  <span
+                    className={`text-xs px-2 py-1 rounded font-bold ${
+                      progress === 100
+                        ? "bg-green-900/30 text-green-400"
+                        : "bg-gray-800 text-gray-400"
+                    }`}
+                  >
+                    {progress === 100 ? "Done" : `${progress}%`}
                   </span>
                 </div>
 
@@ -1166,7 +1271,8 @@ return (
 
                 <div className="text-sm text-gray-500 mb-4 space-y-1">
                   <p className="flex items-center gap-2">
-                    <Calendar size={14} /> {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline'}
+                    <Calendar size={14} />{" "}
+                    {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No Deadline"}
                   </p>
                   <p className="flex items-center gap-2">
                     <User size={14} /> {assignedName || "Unassigned"}
@@ -1174,7 +1280,10 @@ return (
                 </div>
 
                 <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden mb-4">
-                  <div className={`${progress === 100 ? 'bg-green-500' : 'bg-primary'} h-full`} style={{ width: `${progress}%` }} />
+                  <div
+                    className={`${progress === 100 ? "bg-green-500" : "bg-primary"} h-full`}
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
 
                 <div className="flex justify-between items-center text-sm text-gray-400 border-t border-gray-800 pt-3">
@@ -1207,7 +1316,8 @@ return (
             <tbody className="divide-y divide-gray-800">
               {filteredTasks.map((task) => {
                 const progress = getProgress(task);
-                const assignedName = task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0]?.name : "Unassigned";
+                const assignedName =
+                  task.assignedTo && task.assignedTo.length > 0 ? task.assignedTo[0]?.name : "Unassigned";
 
                 return (
                   <tr
@@ -1216,7 +1326,9 @@ return (
                     className="hover:bg-gray-800/50 cursor-pointer transition-colors group"
                   >
                     <td className="p-4 text-white font-medium relative max-w-[200px]">
-                      <div className="truncate" title={task.title}>{task.title}</div>
+                      <div className="truncate" title={task.title}>
+                        {task.title}
+                      </div>
                       <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent group-hover:from-gray-800 pointer-events-none" />
                     </td>
 
@@ -1233,21 +1345,32 @@ return (
 
                     <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <span className={`font-bold ${progress === 100 ? 'text-green-500' : 'text-primary'}`}>
+                        <span className={`font-bold ${progress === 100 ? "text-green-500" : "text-primary"}`}>
                           {progress}%
                         </span>
                         <div className="w-20 bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                          <div className={`${progress === 100 ? 'bg-green-500' : 'bg-primary'} h-full`} style={{ width: `${progress}%` }} />
+                          <div
+                            className={`${progress === 100 ? "bg-green-500" : "bg-primary"} h-full`}
+                            style={{ width: `${progress}%` }}
+                          />
                         </div>
                       </div>
                     </td>
 
                     <td className="p-4">
-                      {new Date(task.createdAt || Date.now()).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      {new Date(task.createdAt || Date.now()).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                      })}
                     </td>
 
                     <td className="p-4 text-gray-300">
-                      {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-'}
+                      {task.deadline
+                        ? new Date(task.deadline).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                          })
+                        : "-"}
                     </td>
                   </tr>
                 );
@@ -1263,7 +1386,6 @@ return (
             </tbody>
           </table>
         </div>
-
       </div>
     </div>
   );
