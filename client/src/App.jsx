@@ -135,30 +135,6 @@ const normRole = (role) =>
 const getRole = (u) => u?.role || u?.user?.role;
 const can = (u, action) => !!PERMS[normRole(getRole(u))]?.[action];
 
-// -----------------------------
-// LIVE BUILD CHECK STICKER (TEMP)
-// Shows on ALL views so you can confirm deploy.
-// REMOVE LATER.
-// -----------------------------
-const BuildCheckSticker = () => (
-  <div
-    style={{
-      position: "fixed",
-      bottom: 10,
-      right: 10,
-      zIndex: 999999,
-      background: "red",
-      color: "white",
-      padding: "8px 10px",
-      borderRadius: 8,
-      fontWeight: 800,
-      boxShadow: "0 8px 25px rgba(0,0,0,0.35)",
-    }}
-  >
-    LIVE BUILD CHECK ✅ v9
-  </div>
-);
-
 function App() {
   const [view, setView] = useState("login");
   const [user, setUser] = useState(null);
@@ -541,7 +517,6 @@ function App() {
   if (view === "login") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark text-white">
-        <BuildCheckSticker />
         <div className="bg-card p-8 rounded-xl shadow-lg w-96 border border-gray-800 m-4">
           <h1 className="text-2xl font-bold text-primary mb-6 text-center">
             THE CONCAVE
@@ -577,7 +552,6 @@ function App() {
     if (!can(uiUser, "analytics")) {
       return (
         <div className="min-h-screen bg-dark text-white p-10">
-          <BuildCheckSticker />
           <p className="text-gray-300 mb-4">You don’t have access to Analytics.</p>
           <button
             onClick={() => setView("dashboard")}
@@ -593,7 +567,6 @@ function App() {
 
     return (
       <div className="min-h-screen bg-dark text-white font-sans pb-10">
-        <BuildCheckSticker />
 
         <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
           <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">
@@ -724,7 +697,6 @@ function App() {
 
     return (
       <div className="min-h-screen bg-dark text-white p-4 md:p-8">
-        <BuildCheckSticker />
 
         <div className="flex justify-between items-center mb-6">
           <button
@@ -939,7 +911,6 @@ function App() {
   // (single return only — no duplicates anywhere)
   return (
     <div className="min-h-screen bg-dark text-white font-sans pb-10">
-      <BuildCheckSticker />
 
       <nav className="border-b border-gray-800 p-4 flex justify-between items-center bg-card sticky top-0 z-50">
         <h1 className="text-lg md:text-xl font-bold text-primary tracking-wider">
